@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import { Header } from './components/Header'
+import { Sidebar } from './components/Sidebar'
 
 function App() {
   // 1. USE STATE: Nuestra memoria. Arranca en "null" (no sabemos si hay sesión).
@@ -150,25 +152,35 @@ function Login() {
 // COMPONENTE 2: EL PANEL DE CONTROL (DASHBOARD)
 // ------------------------------------------------------------------
 function Dashboard({ session }) {
-  // Función para cerrar sesión
+  const [isMenuOpen, setIsMenuOpen] = useState(true)
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
   }
 
   return (
-    <div className="min-h-screen bg-stone-100 p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-3xl font-light text-stone-800 mb-4">Panel de Control</h1>
-        <p className="text-stone-600 mb-8">
-          Has iniciado sesión como: <strong>{session.user.email}</strong>
-        </p>
+    <div className="min-h-screen bg-stone-100 flex flex-col text-stone-800 font-sans">
+      
+      {/* 1. Usamos el componente Header */}
+      <Header 
+        session={session} 
+        isMenuOpen={isMenuOpen} 
+        setIsMenuOpen={setIsMenuOpen} 
+        handleLogout={handleLogout} 
+      />
+
+      <div className="flex flex-1 overflow-hidden">
         
-        <button 
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg"
-        >
-          Cerrar Sesión
-        </button>
+        {/* 2. Usamos el componente Sidebar */}
+        <Sidebar isMenuOpen={isMenuOpen} />
+
+        {/* 3. El contenido principal (Aquí luego pondremos el Router) */}
+        <main className="flex-1 p-6 overflow-y-auto">
+          <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
+            <p className="text-lg font-light">Aquí irá el contenido principal (Grillas, Formularios, etc.)</p>
+          </div>
+        </main>
+
       </div>
     </div>
   )
