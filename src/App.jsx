@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
+import { Clientes } from './components/Clientes'
 
 function App() {
   // 1. USE STATE: Nuestra memoria. Arranca en "null" (no sabemos si hay sesión).
@@ -153,6 +154,9 @@ function Login() {
 // ------------------------------------------------------------------
 function Dashboard({ session }) {
   const [isMenuOpen, setIsMenuOpen] = useState(true)
+  
+  // NUEVA MEMORIA: ¿Qué pantalla estamos viendo? (Arranca en 'inicio')
+  const [vistaActiva, setVistaActiva] = useState('inicio') 
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -161,7 +165,6 @@ function Dashboard({ session }) {
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col text-stone-800 font-sans">
       
-      {/* 1. Usamos el componente Header */}
       <Header 
         session={session} 
         isMenuOpen={isMenuOpen} 
@@ -171,16 +174,32 @@ function Dashboard({ session }) {
 
       <div className="flex flex-1 overflow-hidden">
         
-        {/* 2. Usamos el componente Sidebar */}
-        <Sidebar isMenuOpen={isMenuOpen} />
+        {/* Le pasamos a la Sidebar el "control remoto" para cambiar la vista */}
+        <Sidebar isMenuOpen={isMenuOpen} setVistaActiva={setVistaActiva} />
 
-        {/* 3. El contenido principal (Aquí luego pondremos el Router) */}
         <main className="flex-1 p-6 overflow-y-auto">
-          <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
-            <p className="text-lg font-light">Aquí irá el contenido principal (Grillas, Formularios, etc.)</p>
-          </div>
-        </main>
+          
+          {/* EL RENDERIZADO CONDICIONAL */}
+          
+          {vistaActiva === 'inicio' && (
+            <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex flex-col items-center justify-center text-stone-400 bg-stone-50/50">
+              <h2 className="text-2xl font-light text-stone-600 mb-2">¡Hola, {session.user.email.split('@')[0]}!</h2>
+              <p className="text-lg font-light">Aquí irá el panel de resumen (Turnos del día, Ingresos, etc.)</p>
+            </div>
+          )}
 
+          {vistaActiva === 'clientes' && (
+            <Clientes session={session} /> 
+          )}
+
+          {/* Para las opciones que aún no programamos */}
+          {['agenda', 'servicios', 'insumos'].includes(vistaActiva) && (
+            <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
+              <p className="text-lg font-light">El módulo de {vistaActiva} está en construcción 🚧</p>
+            </div>
+          )}
+
+        </main>
       </div>
     </div>
   )
