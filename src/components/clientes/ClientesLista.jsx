@@ -1,6 +1,16 @@
 // src/components/clientes/ClientesLista.jsx
 
 export function ClientesLista({ clientes, isLoading, onNuevo, onEditar, onVerDetalle, onDesvincular }) {
+  
+  // FUNCIÓN PARA FORMATEAR FECHA SIN ERROR DE ZONA HORARIA
+  const formatearFechaLocal = (fechaStr) => {
+    if (!fechaStr) return '---';
+    // fechaStr viene de la BD como "YYYY-MM-DD"
+    // Lo dividimos por el guion y lo rearmamos manualmente
+    const [anio, mes, dia] = fechaStr.split('-');
+    return `${dia}/${mes}/${anio}`;
+  };
+
   if (isLoading) {
     return <div className="p-12 text-center text-stone-400">Cargando clientes...</div>
   }
@@ -37,7 +47,12 @@ export function ClientesLista({ clientes, isLoading, onNuevo, onEditar, onVerDet
             >
               <td className="px-6 py-4 font-medium text-stone-800">{cliente.nombre}</td>
               <td className="px-6 py-4">{cliente.telefono}</td>
-              <td className="px-6 py-4">{cliente.fecha_nacimiento ? new Date(cliente.fecha_nacimiento).toLocaleDateString() : '---'}</td>
+              
+              {/* CAMBIO AQUÍ: Usamos nuestra función manual */}
+              <td className="px-6 py-4">
+                {formatearFechaLocal(cliente.fecha_nacimiento)}
+              </td>
+              
               <td className="px-6 py-4 text-stone-400">Pronto...</td>
               <td className="px-6 py-4 text-right">
                 <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">

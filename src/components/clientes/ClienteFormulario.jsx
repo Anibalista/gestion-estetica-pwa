@@ -81,7 +81,7 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
 
       if (clienteId) {
         // --- ACTUALIZAR EXISTENTE ---
-        console.log("Actualizando cliente con fecha:", fechaParaEnviar); // Para que veas en consola qué viaja
+       
 
         const { error: errCli } = await supabase.from('clientes')
           .update({ nombre: nombreLimpio, telefono: telefonoFinal, fecha_nacimiento: fechaParaEnviar })
@@ -103,7 +103,7 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
         clienteId = crypto.randomUUID()
 
         const { error: errCli } = await supabase.from('clientes').insert([{
-          id: clienteId, nombre: nombreLimpio, telefono: telefonoFinal, fecha_nacimiento: fechaFinal
+          id: clienteId, nombre: nombreLimpio, telefono: telefonoFinal, fecha_nacimiento: fechaParaEnviar
         }])
         if (errCli) throw errCli
 
