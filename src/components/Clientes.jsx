@@ -7,67 +7,66 @@ import { ClientesLista } from './clientes/ClientesLista'
 import { ClienteFormulario } from './clientes/ClienteFormulario'
 import { ClienteDetalle } from './clientes/ClienteDetalle'
 
-export function Clientes({ session }) {
-  const [modo, setModo] = useState('lista') // 'lista' | 'formulario' | 'detalle'
+export function Clientes({ session, initialModo = 'lista' }) {
+  // 1. Estados
+  const [modo, setModo] = useState(initialModo)
   const [clientes, setClientes] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  
-  // Guardamos qué cliente se seleccionó para editar o ver el detalle
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null) 
 
-  // Cargar datos al iniciar o al volver a la lista
+  // 2. EFECTO DE NAVEGACIÓN (Sidebar)
+  // Este efecto sincroniza el estado interno 'modo' con lo que viene del sidebar
   useEffect(() => {
-    if (modo === 'lista') fetchClientes()
+    setModo(initialModo)
+    if (initialModo === 'formulario') {
+      setClienteSeleccionado(null) 
+    }
+  }, [initialModo])
+
+  // 3. EFECTO DE CARGA DE DATOS
+  // Cada vez que entramos a la lista, refrescamos los datos
+  useEffect(() => {
+    if (modo === 'lista') {
+      fetchClientes()
+    }
   }, [modo])
 
   const fetchClientes = async () => {
-  setIsLoading(true)
-  try {
-    const { data, error } = await supabase
-      .from('cliente_profesional')
-      .select(`
-        cliente_id,
-        clientes (
-          *,
-          patologias (*) 
-        )
-      `)
-      .eq('profesional_id', session.user.id)
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('cliente_profesional')
+        .select(`
+          cliente_id,
+          clientes ( *, patologias (*) )
+        `)
+        .eq('profesional_id', session.user?.id)
 
-    if (error) throw error
+      if (error) throw error
 
-    const dataFormateada = data.map(item => {
-      const c = item.clientes;
-      if (!c) return null;
+      const dataFormateada = data.map(item => {
+        const c = item.clientes;
+        if (!c) return null;
+        // Normalizamos patologías (que no sea un array)
+        const pat = Array.isArray(c.patologias) ? c.patologias[0] : c.patologias;
+        return { ...c, patologias: pat };
+      }).filter(Boolean);
 
-      // LÓGICA ROBUSTA: Detecta si es array u objeto
-      let patData = null;
-      if (c.patologias) {
-        patData = Array.isArray(c.patologias) ? c.patologias[0] : c.patologias;
-      }
-
-      return {
-        ...c,
-        patologias: patData
-      };
-    }).filter(Boolean); // Elimina nulos si los hay
-
-    setClientes(dataFormateada)
-  } catch (error) {
-    console.error("Error cargando clientes:", error.message)
-  } finally {
-    setIsLoading(false)
+      setClientes(dataFormateada)
+    } catch (error) {
+      console.error("Error:", error.message)
+    } finally {
+      setIsLoading(false) // Esto saca el "Cargando..."
+    }
   }
-}
 
-  // MANEJADORES
+  // --- MANEJADORES ---
   const abrirNuevo = () => {
     setClienteSeleccionado(null)
     setModo('formulario')
   }
 
   const abrirEdicion = (cliente) => {
-    console.log("CLIENTE A EDITAR:", cliente); // <--- Agrega esta línea
     setClienteSeleccionado(cliente)
     setModo('formulario')
   }
@@ -76,7 +75,6 @@ export function Clientes({ session }) {
     setClienteSeleccionado(cliente)
     setModo('detalle')
   }
-
   return (
     <div className="h-full flex flex-col max-w-6xl mx-auto">
       

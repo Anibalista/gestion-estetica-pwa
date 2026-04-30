@@ -3,6 +3,8 @@ import { supabase } from './supabaseClient'
 import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { Clientes } from './components/Clientes'
+import { Productos } from './components/Productos'
+
 
 function App() {
   // 1. USE STATE: Nuestra memoria. Arranca en "null" (no sabemos si hay sesión).
@@ -154,8 +156,6 @@ function Login() {
 // ------------------------------------------------------------------
 function Dashboard({ session }) {
   const [isMenuOpen, setIsMenuOpen] = useState(true)
-  
-  // NUEVA MEMORIA: ¿Qué pantalla estamos viendo? (Arranca en 'inicio')
   const [vistaActiva, setVistaActiva] = useState('inicio') 
 
   const handleLogout = async () => {
@@ -170,32 +170,42 @@ function Dashboard({ session }) {
         isMenuOpen={isMenuOpen} 
         setIsMenuOpen={setIsMenuOpen} 
         handleLogout={handleLogout} 
+        setVistaActiva={setVistaActiva} // <--- CABLE 1: Logo funcional
       />
 
       <div className="flex flex-1 overflow-hidden">
-        
-        {/* Le pasamos a la Sidebar el "control remoto" para cambiar la vista */}
         <Sidebar isMenuOpen={isMenuOpen} setVistaActiva={setVistaActiva} />
 
         <main className="flex-1 p-6 overflow-y-auto">
           
-          {/* EL RENDERIZADO CONDICIONAL */}
-          
           {vistaActiva === 'inicio' && (
             <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex flex-col items-center justify-center text-stone-400 bg-stone-50/50">
               <h2 className="text-2xl font-light text-stone-600 mb-2">¡Hola, {session.user.email.split('@')[0]}!</h2>
-              <p className="text-lg font-light">Aquí irá el panel de resumen (Turnos del día, Ingresos, etc.)</p>
+              <p className="text-lg font-light">Este es tu resumen diario.</p>
             </div>
           )}
 
-          {vistaActiva === 'clientes' && (
-            <Clientes session={session} /> 
+          {/* VISTA CLIENTES */}
+          {(vistaActiva === 'clientes' || vistaActiva === 'nuevo-cliente') && (
+            <Clientes 
+              session={session} 
+              // CABLE 2: Diferenciamos si queremos lista o formulario
+              initialModo={vistaActiva === 'nuevo-cliente' ? 'formulario' : 'lista'} 
+            />
           )}
 
-          {/* Para las opciones que aún no programamos */}
-          {['agenda', 'servicios', 'insumos'].includes(vistaActiva) && (
+          {/* VISTA PRODUCTOS (NUEVA SECCIÓN CONECTADA) */}
+          {(vistaActiva === 'registrar-producto' || vistaActiva === 'stock') && (
+            <Productos 
+              session={session} 
+              initialModo={vistaActiva === 'registrar-producto' ? 'registrar' : 'stock'} 
+            />
+          )}
+
+          {/* MÓDULOS EN CONSTRUCCIÓN (Quitamos los de productos de esta lista) */}
+          {['nuevo-turno', 'ver-turnos', 'nuevo-servicio', 'combos', 'insumos', 'ver-servicios', 'ventas', 'admin-productos', 'reportes-productos'].includes(vistaActiva) && (
             <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
-              <p className="text-lg font-light">El módulo de {vistaActiva} está en construcción 🚧</p>
+              <p className="text-lg font-light">El módulo de <span className="font-bold text-stone-600">{vistaActiva}</span> está en construcción 🚧</p>
             </div>
           )}
 

@@ -157,13 +157,50 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
       {/* 2. TELÉFONO */}
       <div>
         <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Teléfono / WhatsApp *</label>
-        <div className="flex gap-2">
-          <select value={formData.codigoPais} onChange={(e) => handleChange('codigoPais', e.target.value)} className="w-24 px-2 py-2 border border-stone-200 rounded-lg outline-none bg-white">
-            <option value="+54">🇦🇷 +54</option><option value="+598">🇺🇾 +598</option><option value="+56">🇨🇱 +56</option>
-          </select>
-          <input required type="number" placeholder="Área" value={formData.codigoArea} onChange={(e) => handleChange('codigoArea', e.target.value)} className="w-1/3 px-4 py-2 border border-stone-200 rounded-lg outline-none" />
-          <input required type="number" placeholder="Número local" value={formData.numeroLocal} onChange={(e) => handleChange('numeroLocal', e.target.value)} className="flex-1 px-4 py-2 border border-stone-200 rounded-lg outline-none" />
+        
+        {/* flex-col en celular, flex-row en pantallas más grandes */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          
+          {/* Fila 1 en celular: País y Área juntos */}
+          <div className="flex gap-2 w-full sm:w-auto">
+            <select 
+              value={formData.codigoPais} 
+              onChange={(e) => handleChange('codigoPais', e.target.value)} 
+              className="w-24 shrink-0 px-2 py-2 border border-stone-200 rounded-lg outline-none bg-white focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="+54">🇦🇷 +54</option>
+              <option value="+598">🇺🇾 +598</option>
+              <option value="+56">🇨🇱 +56</option>
+            </select>
+            
+            <input 
+              required 
+              type="number" 
+              placeholder="Área (ej: 3446)" 
+              value={formData.codigoArea} 
+              onChange={(e) => handleChange('codigoArea', e.target.value)} 
+              className="w-full sm:w-32 px-4 py-2 border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-teal-500" 
+            />
+          </div>
+          
+          {/* Fila 2 en celular: Número Local (salta hacia abajo) */}
+          <input 
+            required 
+            type="number" 
+            placeholder="Número local (ej: 646466)" 
+            value={formData.numeroLocal} 
+            onChange={(e) => handleChange('numeroLocal', e.target.value)} 
+            className="w-full sm:flex-1 px-4 py-2 border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-teal-500" 
+          />
+          
         </div>
+        
+        {/* Vista previa opcional si ya está escribiendo */}
+        {(formData.codigoArea || formData.numeroLocal) && (
+          <p className="text-xs text-stone-500 mt-2 ml-1">
+            Se guardará: <strong className="text-teal-600">({formData.codigoPais}){formData.codigoArea}-{formData.numeroLocal}</strong>
+          </p>
+        )}
       </div>
 
       {/* 3. PATOLOGÍAS */}
