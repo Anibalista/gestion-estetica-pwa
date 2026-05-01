@@ -4,7 +4,8 @@ import { Header } from './components/Header'
 import { Sidebar } from './components/Sidebar'
 import { Clientes } from './components/Clientes'
 import { Productos } from './components/Productos'
-
+import { Servicios } from './components/Servicios'
+import { Combos } from './components/Combos'
 
 function App() {
   // 1. USE STATE: Nuestra memoria. Arranca en "null" (no sabemos si hay sesión).
@@ -202,8 +203,21 @@ function Dashboard({ session }) {
             />
           )}
 
-          {/* MÓDULOS EN CONSTRUCCIÓN (Quitamos los de productos de esta lista) */}
-          {['nuevo-turno', 'ver-turnos', 'nuevo-servicio', 'combos', 'insumos', 'ver-servicios', 'ventas', 'admin-productos', 'reportes-productos'].includes(vistaActiva) && (
+          {/* VISTA SERVICIOS */}
+          {(vistaActiva === 'ver-servicios' || vistaActiva === 'nuevo-servicio') && (
+            <Servicios 
+              session={session} 
+              initialModo={vistaActiva} 
+            />
+          )}
+
+          {/* VISTA COMBOS */}
+          {vistaActiva === 'combos' && (
+            <Combos session={session} initialModo="lista" />
+          )}
+
+          {/* Actualiza la lista de en construcción quitando 'ver-servicios', 'nuevo-servicio' y 'combos' */}
+          {['nuevo-turno', 'ver-turnos', 'insumos', 'ventas', 'admin-productos', 'reportes-productos'].includes(vistaActiva) && (
             <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
               <p className="text-lg font-light">El módulo de <span className="font-bold text-stone-600">{vistaActiva}</span> está en construcción 🚧</p>
             </div>
