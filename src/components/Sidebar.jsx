@@ -1,76 +1,47 @@
 // src/components/Sidebar.jsx
 
-export function Sidebar({ isMenuOpen, setVistaActiva }) {
+// 1. Recibimos setIsMenuOpen en los props
+export function Sidebar({ isMenuOpen, setVistaActiva, setIsMenuOpen }) {
+  
+  // 2. Creamos la función que hace ambas tareas
+  const manejarSeleccion = (vista) => {
+    setVistaActiva(vista);
+    // Para que no moleste en monitores grandes, cerramos el menú
+    // solo si la pantalla es chica (típico de celulares/tablets)
+    // Si prefieres que se cierre SIEMPRE sin importar la pantalla, deja solo: setIsMenuOpen(false);
+    if (window.innerWidth < 1024 && setIsMenuOpen) {
+      setIsMenuOpen(false);
+    }
+  }
+
   return (
     <aside className={`${isMenuOpen ? 'w-64' : 'w-0'} bg-white border-r border-stone-200 overflow-y-auto transition-all duration-300 ease-in-out flex flex-col shrink-0`}>
       <div className="p-4 w-64">
         
-        {/* SECCIÓN: TURNOS / CITAS */}
         <MenuSection title="Turnos / Citas">
-          <MenuItem 
-            label="Nuevo turno" 
-            onClick={() => setVistaActiva('nuevo-turno')} 
-          />
-          <MenuItem 
-            label="Ver turnos" 
-            onClick={() => setVistaActiva('agenda')} 
-          />
+          {/* 3. Reemplazamos setVistaActiva por nuestra nueva función */}
+          <MenuItem label="Nuevo turno" onClick={() => manejarSeleccion('nuevo-turno')} />
+          <MenuItem label="Ver turnos" onClick={() => manejarSeleccion('agenda')} />
         </MenuSection>
 
-        {/* SECCIÓN: SERVICIOS */}
         <MenuSection title="Servicios">
-          <MenuItem 
-            label="Nuevo servicio" 
-            onClick={() => setVistaActiva('nuevo-servicio')} 
-          />
-          <MenuItem 
-            label="Combos" 
-            onClick={() => setVistaActiva('combos')} 
-          />
-          <MenuItem 
-            label="Insumos - Costos" 
-            onClick={() => setVistaActiva('insumos')} 
-          />
-          <MenuItem 
-            label="Ver servicios" 
-            onClick={() => setVistaActiva('ver-servicios')} 
-          />
+          <MenuItem label="Nuevo servicio" onClick={() => manejarSeleccion('nuevo-servicio')} />
+          <MenuItem label="Combos" onClick={() => manejarSeleccion('combos')} />
+          <MenuItem label="Insumos - Costos" onClick={() => manejarSeleccion('insumos')} />
+          <MenuItem label="Ver servicios" onClick={() => manejarSeleccion('ver-servicios')} />
         </MenuSection>
 
-        {/* SECCIÓN: PRODUCTOS */}
         <MenuSection title="Productos">
-          <MenuItem 
-            label="Ventas" 
-            onClick={() => setVistaActiva('ventas')} 
-          />
-          <MenuItem 
-            label="Registrar" 
-            onClick={() => setVistaActiva('registrar-producto')} 
-          />
-          <MenuItem 
-            label="Stock" 
-            onClick={() => setVistaActiva('stock')} 
-          />
-          <MenuItem 
-            label="Administrar" 
-            onClick={() => setVistaActiva('admin-productos')} 
-          />
-          <MenuItem 
-            label="Reportes" 
-            onClick={() => setVistaActiva('reportes-productos')} 
-          />
+          <MenuItem label="Ventas" onClick={() => manejarSeleccion('ventas')} />
+          <MenuItem label="Registrar" onClick={() => manejarSeleccion('registrar-producto')} />
+          <MenuItem label="Stock" onClick={() => manejarSeleccion('stock')} />
+          <MenuItem label="Administrar" onClick={() => manejarSeleccion('admin-productos')} />
+          <MenuItem label="Reportes" onClick={() => manejarSeleccion('reportes-productos')} />
         </MenuSection>
 
-        {/* SECCIÓN: CLIENTES */}
         <MenuSection title="Clientes">
-          <MenuItem 
-            label="Nuevo cliente" 
-            onClick={() => setVistaActiva('nuevo-cliente')} 
-          />
-          <MenuItem 
-            label="Ver clientes" 
-            onClick={() => setVistaActiva('clientes')} 
-          />
+          <MenuItem label="Nuevo cliente" onClick={() => manejarSeleccion('nuevo-cliente')} />
+          <MenuItem label="Ver clientes" onClick={() => manejarSeleccion('clientes')} />
         </MenuSection>
 
       </div>
@@ -78,7 +49,6 @@ export function Sidebar({ isMenuOpen, setVistaActiva }) {
   )
 }
 
-// Componentes auxiliares para mantener el código limpio
 function MenuSection({ title, children }) {
   return (
     <div className="mb-6">

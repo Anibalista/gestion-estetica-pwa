@@ -10,40 +10,31 @@ import { Turnos } from './components/Turnos'
 import { Ventas } from './components/Ventas'
 
 function App() {
-  // 1. USE STATE: Nuestra memoria. Arranca en "null" (no sabemos si hay sesión).
   const [session, setSession] = useState(null)
 
-  // 2. USE EFFECT: Se ejecuta una sola vez cuando la app arranca.
   useEffect(() => {
-    // A. Preguntamos a Supabase: "¿Tenemos una sesión guardada?"
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
     })
 
-    // B. Nos quedamos "escuchando". Si el usuario hace clic en el link del correo, 
-    // Supabase nos avisa por aquí, y actualizamos nuestra memoria.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
 
-    // (Limpieza interna de React al cerrar)
     return () => subscription.unsubscribe()
   }, [])
 
-  // 3. EL RUTEADOR MANUAL: 
-  // Si la memoria dice que NO hay sesión, mostramos el componente Login.
   if (!session) {
     return <Login />
   }
   
-  // Si SÍ hay sesión, mostramos el componente Dashboard.
   return <Dashboard session={session} />
 }
 
 // ------------------------------------------------------------------
-// COMPONENTE 1: EL LOGIN (Es exactamente lo que ya teníamos)
+// COMPONENTE 1: EL LOGIN
 // ------------------------------------------------------------------
 function Login() {
   const [email, setEmail] = useState('')
@@ -57,7 +48,8 @@ function Login() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'http://localhost:5173/'
+        // Corrección: Usamos el origen actual de la ventana
+        redirectTo: window.location.origin
       }
     })
     if (error) {
@@ -77,7 +69,8 @@ function Login() {
     const { error } = await supabase.auth.signInWithOtp({
       email: email,
       options: {
-        emailRedirectTo: 'http://localhost:5173/'
+        // Corrección: Usamos el origen actual de la ventana
+        emailRedirectTo: window.location.origin
       }
     })
 
@@ -173,11 +166,16 @@ function Dashboard({ session }) {
         isMenuOpen={isMenuOpen} 
         setIsMenuOpen={setIsMenuOpen} 
         handleLogout={handleLogout} 
-        setVistaActiva={setVistaActiva} // <--- CABLE 1: Logo funcional
+        setVistaActiva={setVistaActiva}
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar isMenuOpen={isMenuOpen} setVistaActiva={setVistaActiva} />
+        {/* Corrección: Le pasamos setIsMenuOpen al Sidebar */}
+        <Sidebar 
+          isMenuOpen={isMenuOpen} 
+          setVistaActiva={setVistaActiva} 
+          setIsMenuOpen={setIsMenuOpen} 
+        />
 
         <main className="flex-1 p-6 overflow-y-auto">
           
@@ -188,54 +186,31 @@ function Dashboard({ session }) {
             </div>
           )}
 
-          {/* VISTA CLIENTES */}
+          {/* VISTAS... (El resto queda exactamente igual) */}
           {(vistaActiva === 'clientes' || vistaActiva === 'nuevo-cliente') && (
-            <Clientes 
-              session={session} 
-              // CABLE 2: Diferenciamos si queremos lista o formulario
-              initialModo={vistaActiva === 'nuevo-cliente' ? 'formulario' : 'lista'} 
-            />
+            <Clientes session={session} initialModo={vistaActiva === 'nuevo-cliente' ? 'formulario' : 'lista'} />
           )}
 
-          {/* VISTA PRODUCTOS (NUEVA SECCIÓN CONECTADA) */}
           {(vistaActiva === 'registrar-producto' || vistaActiva === 'stock') && (
-            <Productos 
-              session={session} 
-              initialModo={vistaActiva === 'registrar-producto' ? 'registrar' : 'stock'} 
-            />
+            <Productos session={session} initialModo={vistaActiva === 'registrar-producto' ? 'registrar' : 'stock'} />
           )}
 
-          {/* VISTA SERVICIOS */}
           {(vistaActiva === 'ver-servicios' || vistaActiva === 'nuevo-servicio') && (
-            <Servicios 
-              session={session} 
-              initialModo={vistaActiva} 
-            />
+            <Servicios session={session} initialModo={vistaActiva} />
           )}
 
-          {/* VISTA COMBOS */}
           {vistaActiva === 'combos' && (
             <Combos session={session} initialModo="lista" />
           )}
 
-          {/* VISTA TURNOS (Agenda y Registro) */}
           {(vistaActiva === 'agenda' || vistaActiva === 'nuevo-turno') && (
-            <Turnos 
-              session={session} 
-              initialModo={vistaActiva} 
-            />
+            <Turnos session={session} initialModo={vistaActiva} />
           )}
 
-          {/* VISTA VENTAS (Historial y Punto de Venta) */}
           {vistaActiva === 'ventas' && (
-            <Ventas 
-              session={session} 
-              initialModo="historial" 
-            />
+            <Ventas session={session} initialModo="historial" />
           )}
 
-          {/* MÓDULOS EN CONSTRUCCIÓN */}
-          {/* Asegúrate de que 'agenda' y 'nuevo-turno' YA NO ESTÉN en esta lista 👇 */}
           {['insumos', 'admin-productos', 'reportes-productos'].includes(vistaActiva) && (
             <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
               <p className="text-lg font-light">El módulo de <span className="font-bold text-stone-600">{vistaActiva}</span> está en construcción 🚧</p>
