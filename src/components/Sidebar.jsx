@@ -13,7 +13,7 @@ export function Sidebar({ isMenuOpen, setVistaActiva }) {
           />
           <MenuItem 
             label="Ver turnos" 
-            onClick={() => setVistaActiva('ver-turnos')} 
+            onClick={() => setVistaActiva('agenda')} 
           />
         </MenuSection>
 
