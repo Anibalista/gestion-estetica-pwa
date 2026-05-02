@@ -7,6 +7,7 @@ import { Productos } from './components/Productos'
 import { Servicios } from './components/Servicios'
 import { Combos } from './components/Combos'
 import { Turnos } from './components/Turnos'
+import { Ventas } from './components/Ventas'
 
 function App() {
   // 1. USE STATE: Nuestra memoria. Arranca en "null" (no sabemos si hay sesión).
@@ -225,9 +226,17 @@ function Dashboard({ session }) {
             />
           )}
 
+          {/* VISTA VENTAS (Historial y Punto de Venta) */}
+          {vistaActiva === 'ventas' && (
+            <Ventas 
+              session={session} 
+              initialModo="historial" 
+            />
+          )}
+
           {/* MÓDULOS EN CONSTRUCCIÓN */}
           {/* Asegúrate de que 'agenda' y 'nuevo-turno' YA NO ESTÉN en esta lista 👇 */}
-          {['insumos', 'ventas', 'admin-productos', 'reportes-productos'].includes(vistaActiva) && (
+          {['insumos', 'admin-productos', 'reportes-productos'].includes(vistaActiva) && (
             <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
               <p className="text-lg font-light">El módulo de <span className="font-bold text-stone-600">{vistaActiva}</span> está en construcción 🚧</p>
             </div>

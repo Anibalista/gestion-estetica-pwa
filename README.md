@@ -5,19 +5,18 @@ Aplicación Web Progresiva (PWA) diseñada para la gestión integral de centros 
 ## 🚀 Stack Tecnológico
 
 * **Base de Datos & Backend:** PostgreSQL (Supabase)
-* **Autenticación:** Supabase Auth (Magic Links)
-* **Frontend:** Vue.js / React (Configurado como PWA)
+* **Autenticación:** Supabase Auth
+* **Frontend:** React (Configurado como PWA)
 * **Estilos:** Tailwind CSS
-* **Almacenamiento Offline:** Dexie.js (IndexedDB wrapper)
 * **Hosting:** Vercel / Netlify
 
 ## 🎯 Épicas y Funcionalidades Principales
 
-1.  **Gestión Multiprofesional (Multi-Tenant):** Aislamiento de datos por profesional, con capacidad de compartir clientes y servicios en un mismo centro.
-2.  **Punto de Venta Dinámico:** Registro de sesiones combinando servicios individuales y combos, guardando una "foto" del precio cobrado para mantener el historial financiero inmutable.
-3.  **Control de Insumos y Rentabilidad:** Cálculo automático del margen de ganancia restando el costo proporcional de los productos (ej. cremas, aceites) utilizados en cada servicio.
-4.  **Historia Clínica y Aptitud:** Fichas de pacientes con registro de patologías, integrables mediante webhooks (n8n) desde formularios de Google.
-5.  **Experiencia Offline-First:** Interfaz rápida sin tiempos de carga (lag), capaz de guardar registros sin conexión y sincronizar en segundo plano.
+1.  **Gestión Multiprofesional (Multi-Tenant):** Aislamiento de datos mediante Row Level Security (RLS). Cada profesional gestiona sus propios clientes, servicios y ventas.
+2.  **Agenda y Sesiones Inteligentes:** Registro de citas con validación de disponibilidad horaria y estados (Pendiente, Cobrada, Ausente, Anulada). Permite múltiples servicios/combos por sesión.
+3.  **Punto de Venta (POS) e Inventario:** Venta de productos con descuento de stock automático mediante funciones RPC. Soporta múltiples medios de pago.
+4.  **Control de Insumos (Rentabilidad):** Cálculo del costo de insumos por servicio (unidades enteras o cantidad suelta/dosificada) para determinar el margen real.
+5.  **Ficha Clínica:** Registro de patologías (hipertensión, diabetes, etc.) y direcciones vinculadas de forma única a cada cliente.
 
 ## 🗄️ Modelo de Dominio (Entity-Relationship)
 
@@ -29,98 +28,112 @@ erDiagram
     PROFESIONALES ||--o{ SERVICIO_PROFESIONAL : "habilita"
     SERVICIOS ||--o{ SERVICIO_PROFESIONAL : "es prestado por"
     
-    SERVICIOS ||--o{ COMBO_SERVICIOS : "incluido en"
+    PROFESIONALES ||--o{ COMBOS : "crea"
     COMBOS ||--o{ COMBO_SERVICIOS : "agrupa"
+    SERVICIOS ||--o{ COMBO_SERVICIOS : "incluido en"
     
+    PROFESIONALES ||--o{ PRODUCTOS : "gestiona"
     SERVICIOS ||--o{ COSTO_SERVICIO : "genera gasto"
-    PRODUCTOS ||--o| COSTO_SERVICIO : "se usa como insumo"
+    PRODUCTOS ||--o| COSTO_SERVICIO : "insumo de"
     
     CLIENTES ||--o| DIRECCIONES : "reside en"
     CLIENTES ||--o| PATOLOGIAS : "reporta"
     
-    SESIONES }|--|| CLIENTES : "para el cliente"
-    SESIONES }|--|| PROFESIONALES : "atendida por"
-    SESIONES ||--|{ SESION_DETALLES : "desglosa cobro"
-    
-    SERVICIOS ||--o{ SESION_DETALLES : "vendido como item"
-    COMBOS ||--o{ SESION_DETALLES : "vendido como item"
+    SESIONES }|--|| CLIENTES : "para"
+    SESIONES }|--|| PROFESIONALES : "por"
+    SESIONES ||--|{ SESION_DETALLES : "desglosa"
+    SERVICIOS ||--o{ SESION_DETALLES : "item"
+    COMBOS ||--o{ SESION_DETALLES : "item"
+
+    VENTAS }|--|| PROFESIONALES : "registra"
+    VENTAS }|--o| CLIENTES : "compra"
+    VENTAS ||--|{ VENTA_DETALLES : "contiene"
+    PRODUCTOS ||--o{ VENTA_DETALLES : "item"
 
     PROFESIONALES {
-        uuid id PK "NOT NULL"
-        string nombre_negocio "NOT NULL"
-        string plan_suscripcion "NOT NULL, Default: 'Gratis'"
+        uuid id PK
+        string nombre_negocio
+        string plan_suscripcion
+        timestamptz created_at
     }
 
     CLIENTES {
-        uuid id PK "NOT NULL"
-        string nombre "NOT NULL"
-        string telefono "NOT NULL"
-    }
-
-    CLIENTE_PROFESIONAL {
-        uuid cliente_id PK, FK "NOT NULL"
-        uuid profesional_id PK, FK "NOT NULL"
-    }
-
-    DIRECCIONES {
-        uuid id PK "NOT NULL"
-        uuid cliente_id FK "NOT NULL"
-    }
-
-    PATOLOGIAS {
-        uuid id PK "NOT NULL"
-        uuid cliente_id FK "NOT NULL"
+        uuid id PK
+        string nombre
+        string telefono UK
+        date fecha_nacimiento
+        timestamptz created_at
     }
 
     SERVICIOS {
-        uuid id PK "NOT NULL"
-        string nombre "NOT NULL"
-        boolean activo "NOT NULL"
-        decimal precio_actual "NOT NULL"
-    }
-
-    SERVICIO_PROFESIONAL {
-        uuid servicio_id PK, FK "NOT NULL"
-        uuid profesional_id PK, FK "NOT NULL"
+        uuid id PK
+        string nombre
+        boolean activo
+        numeric precio_actual
+        string descripcion
+        integer duracion_minutos
+        string beneficios
     }
 
     COMBOS {
-        uuid id PK "NOT NULL"
-        string nombre "NOT NULL"
-        decimal precio_actual "NOT NULL"
-    }
-
-    COMBO_SERVICIOS {
-        uuid combo_id PK, FK "NOT NULL"
-        uuid servicio_id PK, FK "NOT NULL"
+        uuid id PK
+        string nombre
+        boolean activo
+        numeric precio_actual
+        integer duracion_minutos
+        string url_imagen
+        uuid profesional_id FK
     }
 
     PRODUCTOS {
-        uuid id PK "NOT NULL"
-        uuid profesional_id FK "NOT NULL"
-        string descripcion "NOT NULL"
-        float dosificacion "NOT NULL"
-        decimal cantidad_suelta "NULL (stock)"
-        decimal costo_unidad "NOT NULL"
+        uuid id PK
+        uuid profesional_id FK
+        string codigo
+        string descripcion
+        numeric dosificacion
+        string unidad_medida
+        numeric cantidad_suelta
+        integer unidades_enteras
+        numeric precio_venta
+        numeric costo_unidad
+        date proximo_vencimiento
+        integer stock_minimo
+        boolean activo
     }
 
     COSTO_SERVICIO {
-        uuid id PK "NOT NULL"
-        uuid servicio_id FK "NOT NULL"
-        uuid producto_id FK "NULL"
-        decimal monto "NOT NULL"
-        float cantidad_suelta_usada "NULL"
+        uuid id PK
+        uuid servicio_id FK
+        uuid producto_id FK
+        string descripcion
+        numeric monto
+        numeric cantidad_suelta_usada
+        integer unidades_usadas
     }
 
     SESIONES {
-        uuid id PK "NOT NULL"
-        uuid cliente_id FK "NOT NULL"
-        uuid profesional_id FK "NOT NULL"
-        decimal monto_total "NOT NULL"
+        uuid id PK
+        uuid cliente_id FK
+        uuid profesional_id FK
+        timestamptz fecha_hora
+        numeric monto_total
+        numeric monto_cobrado
+        integer duracion_total
+        string estado
+        string observaciones
     }
 
-    SESION_DETALLES {
-        uuid id PK "NOT NULL"
-        uuid sesion_id FK "NOT NULL"
-        decimal precio_cobrado "NOT NULL (histórico)"
+    VENTAS {
+        uuid id PK
+        string numero_venta
+        uuid profesional_id FK
+        uuid cliente_id FK
+        timestamptz fecha_hora
+        numeric monto_total
+        numeric monto_cobrado
+        string medio_pago
+        string estado
     }
+```
+with open("README.md", "w", encoding="utf-8") as f:
+    f.write(content)
