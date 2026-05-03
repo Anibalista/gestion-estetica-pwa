@@ -19,20 +19,19 @@ export function Combos({ session, initialModo = 'lista' }) {
 
   return (
     <div className="max-w-7xl mx-auto h-full flex flex-col">
-       {/* ... (Título y botones de la lista) ... */}
-
-       {modo === 'lista' ? (
-         <CombosLista session={session} onEditar={manejarEdicion} onNuevo={() => setModo('formulario')} />
-       ) : (
-         <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
-           <ComboFormulario 
-             session={session} 
-             comboInicial={comboAEditar}
-             onGuardar={() => setModo('lista')}
-             onCancelar={() => setModo('lista')}
-           />
-         </div>
-       )}
+      {modo === 'lista' ? (
+        <CombosLista session={session} onEditar={manejarEdicion} onNuevo={() => setModo('formulario')} />
+      ) : (
+        <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
+          <ComboFormulario 
+            key={comboAEditar ? comboAEditar.id : 'nuevo'}
+            session={session} 
+            comboInicial={comboAEditar}
+            onGuardar={() => setModo('lista')}
+            onCancelar={() => setModo('lista')}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -33,6 +33,7 @@ export function Productos({ session, initialModo = 'stock' }) {
       <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
         {modo === 'registrar' ? (
           <ProductoFormulario 
+            key={productoAEditar ? productoAEditar.id : 'nuevo'}
             session={session} 
             productoInicial={productoAEditar}
             onGuardadoExitoso={() => setModo('stock')} 

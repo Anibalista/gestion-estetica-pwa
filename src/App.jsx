@@ -211,6 +211,31 @@ function Dashboard({ session }) {
             <Ventas session={session} initialModo="historial" />
           )}
 
+          {/* NUEVAS VISTAS DE PERFIL (En Construcción) */}
+          {vistaActiva === 'personalizar' && (
+            <div className="max-w-3xl mx-auto p-8 text-center bg-white rounded-2xl shadow-sm border border-stone-200 mt-10">
+              <span className="text-5xl mb-4 block">🎨</span>
+              <h2 className="text-2xl font-light text-stone-800 mb-2">Personalizar App</h2>
+              <p className="text-stone-500">Aquí agregaremos la opción para cambiar colores, logos y el diseño de la PWA.</p>
+            </div>
+          )}
+
+          {vistaActiva === 'empresa' && (
+            <div className="max-w-3xl mx-auto p-8 text-center bg-white rounded-2xl shadow-sm border border-stone-200 mt-10">
+              <span className="text-5xl mb-4 block">🏢</span>
+              <h2 className="text-2xl font-light text-stone-800 mb-2">Mi Empresa</h2>
+              <p className="text-stone-500">Aquí cargaremos el CUIT, dirección comercial, redes sociales y nombre legal.</p>
+            </div>
+          )}
+
+          {vistaActiva === 'mejoras' && (
+            <div className="max-w-3xl mx-auto p-8 text-center bg-white rounded-2xl shadow-sm border border-stone-200 mt-10">
+              <span className="text-5xl mb-4 block">💡</span>
+              <h2 className="text-2xl font-light text-stone-800 mb-2">Buzón de Mejoras</h2>
+              <p className="text-stone-500">Un formulario simple para que reportes errores o pidas nuevas funciones.</p>
+            </div>
+          )}
+
           {['insumos', 'admin-productos', 'reportes-productos'].includes(vistaActiva) && (
             <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex items-center justify-center text-stone-400 bg-stone-50/50">
               <p className="text-lg font-light">El módulo de <span className="font-bold text-stone-600">{vistaActiva}</span> está en construcción 🚧</p>

@@ -115,9 +115,11 @@ export function Clientes({ session, initialModo = 'lista' }) {
               <h3 className="font-medium text-stone-700">{clienteSeleccionado ? 'Editar Cliente' : 'Registro de Nuevo Cliente'}</h3>
             </div>
             <ClienteFormulario 
+              key={clienteSeleccionado ? clienteSeleccionado.id : 'nuevo'}
               clienteInicial={clienteSeleccionado}
               session={session}
-              onGuardadoExitoso={() => setModo('lista')} 
+              onGuardadoExitoso={() => setModo('lista')}
+              onCancelar={() => setModo('lista')}
             />
           </>
         )}

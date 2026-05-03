@@ -47,15 +47,16 @@ export function Turnos({ session, initialModo = 'agenda' }) {
       <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex-1">
         {modo === 'nuevo-turno' ? (
           <TurnoFormulario 
+            key={turnoAEditar ? turnoAEditar.id : 'nuevo'}
             session={session} 
-            turnoInicial={turnoAEditar} // <--- Pasamos el turno al formulario
+            turnoInicial={turnoAEditar}
             onGuardar={manejarGuardado}
             onCancelar={() => setModo('agenda')}
           />
         ) : (
           <TurnosLista 
             session={session} 
-            onEditar={manejarEdicion} // <--- Conectamos la función de editar
+            onEditar={manejarEdicion}   
           />
         )}
       </div>

@@ -47,8 +47,6 @@ export function ClientesLista({ clientes, isLoading, onNuevo, onEditar, onVerDet
             >
               <td className="px-6 py-4 font-medium text-stone-800">{cliente.nombre}</td>
               <td className="px-6 py-4">{cliente.telefono}</td>
-              
-              {/* CAMBIO AQUÍ: Usamos nuestra función manual */}
               <td className="px-6 py-4">
                 {formatearFechaLocal(cliente.fecha_nacimiento)}
               </td>
@@ -56,7 +54,6 @@ export function ClientesLista({ clientes, isLoading, onNuevo, onEditar, onVerDet
               <td className="px-6 py-4 text-stone-400">Pronto...</td>
               {/* ACCIONES */}
               <td className="px-6 py-4 text-right">
-                {/* CAMBIO AQUÍ: opacity-100 por defecto (móviles), oculto y hover solo en PC (lg:...) */}
                 <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={(e) => { e.stopPropagation(); onEditar(cliente); }}

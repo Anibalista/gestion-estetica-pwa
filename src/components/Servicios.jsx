@@ -41,6 +41,7 @@ export function Servicios({ session, initialModo = 'ver-servicios' }) {
         />
         ) : (
         <ServicioFormulario 
+            key={servicioAEditar ? servicioAEditar.id : 'nuevo'}
             session={session} 
             servicioInicial={servicioAEditar}
             onGuardar={() => setModo('ver-servicios')}
