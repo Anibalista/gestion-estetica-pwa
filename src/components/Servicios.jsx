@@ -25,7 +25,9 @@ export function Servicios({ session, initialModo = 'ver-servicios' }) {
         </h2>
         {modo === 'ver-servicios' && (
           <button 
-            onClick={() => setModo('nuevo-servicio')} 
+            onClick={() => {
+              setServicioAEditar(null)
+              setModo('nuevo-servicio')}} 
             className="bg-teal-600 text-white px-4 py-2 rounded-lg font-medium shadow-sm hover:bg-teal-700 transition"
           >
             + Registrar Servicio

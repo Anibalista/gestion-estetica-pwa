@@ -20,7 +20,14 @@ export function Combos({ session, initialModo = 'lista' }) {
   return (
     <div className="max-w-7xl mx-auto h-full flex flex-col">
       {modo === 'lista' ? (
-        <CombosLista session={session} onEditar={manejarEdicion} onNuevo={() => setModo('formulario')} />
+        <CombosLista 
+          session={session} 
+          onEditar={manejarEdicion} 
+          onNuevo={() => {
+            setComboAEditar(null) 
+            setModo('formulario')
+          }} 
+        />
       ) : (
         <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
           <ComboFormulario 

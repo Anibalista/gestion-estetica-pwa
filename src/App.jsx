@@ -170,7 +170,6 @@ function Dashboard({ session }) {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Corrección: Le pasamos setIsMenuOpen al Sidebar */}
         <Sidebar 
           isMenuOpen={isMenuOpen} 
           setVistaActiva={setVistaActiva} 

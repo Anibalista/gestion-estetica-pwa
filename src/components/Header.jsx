@@ -1,5 +1,6 @@
 // src/components/Header.jsx
 import { useState } from 'react'
+import logo from '../assets/logo.jpeg'
 
 export function Header({ session, isMenuOpen, setIsMenuOpen, handleLogout, setVistaActiva }) {
   const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false)
@@ -13,19 +14,34 @@ export function Header({ session, isMenuOpen, setIsMenuOpen, handleLogout, setVi
   }
 
   return (
-    <header className="bg-white border-b border-stone-200 h-16 flex items-center justify-between px-4 shrink-0 shadow-sm relative z-40">
-      <div className="flex items-center gap-4">
+    <header className="bg-white border-b border-stone-200 h-26 flex items-center justify-between px-4 shrink-0 shadow-sm relative z-40">
+      {/* Izquierda: Botón Hamburguesa */}
+      <div className="flex items-center gap-2">
         <button 
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="text-stone-500 hover:text-teal-600 focus:outline-none p-2 rounded-lg hover:bg-teal-50 transition-colors"
+          onClick={() => setIsMenuOpen(!isMenuOpen)} 
+          className="p-2 hover:bg-stone-100 rounded-lg transition-colors cursor-pointer"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <h1 className="text-xl font-bold text-teal-700 tracking-tight flex items-center gap-2">
-          <span className="text-2xl">💆‍♀️</span> Estética<span className="font-light text-stone-500">Pro</span>
-        </h1>
+      </div>
+
+      {/* Centro: Logotipo con imagen */}
+      <div className="flex-1 flex justify-center">
+        <button 
+          onClick={() => setVistaActiva('inicio')}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer focus:outline-none"
+        >
+          <img 
+            src={logo} 
+            alt="Silmar Masajes Logo" 
+            className="h-24 w-auto object-contain" 
+          />
+          <span className="hidden md:block font-medium tracking-widest text-stone-500 text-sm">
+            SILMAR MASAJES
+          </span>
+        </button>
       </div>
 
       {/* MENÚ DE PERFIL */}
