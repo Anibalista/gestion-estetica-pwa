@@ -54,17 +54,19 @@ export function ClientesLista({ clientes, isLoading, onNuevo, onEditar, onVerDet
               </td>
               
               <td className="px-6 py-4 text-stone-400">Pronto...</td>
+              {/* ACCIONES */}
               <td className="px-6 py-4 text-right">
-                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* CAMBIO AQUÍ: opacity-100 por defecto (móviles), oculto y hover solo en PC (lg:...) */}
+                <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={(e) => { e.stopPropagation(); onEditar(cliente); }}
-                    className="text-teal-600 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-md transition-colors font-medium text-xs"
+                    className="text-teal-600 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-md transition-colors font-medium text-xs active:scale-95"
                   >
                     Editar
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); onDesvincular(cliente); }}
-                    className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md transition-colors font-medium text-xs"
+                    className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md transition-colors font-medium text-xs active:scale-95"
                   >
                     Desvincular
                   </button>
