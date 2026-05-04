@@ -6,10 +6,11 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [busqueda, setBusqueda] = useState('')
+  const [confirmarSuperposicion, setConfirmarSuperposicion] = useState(false) 
   
   // Catálogos
   const [clientes, setClientes] = useState([])
-  const [catalogo, setCatalogo] = useState([]) // Uniremos servicios y combos aquí para la lista
+  const [catalogo, setCatalogo] = useState([]) 
   const [turnosExistentes, setTurnosExistentes] = useState([])
 
   const [formData, setFormData] = useState({
@@ -19,20 +20,22 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     hora: '',
     observaciones: '',
     estado: 'Pendiente',
-    monto_cobrado: ''
+    monto_cobrado: '',
+    duracion_manual: '' 
   })
 
-  // El Carrito ahora guarda los IDs y tipos para hacer toggle fácilmente
+  // Estados para el domicilio
+  const [aDomicilio, setADomicilio] = useState(false)
+  const [direccion, setDireccion] = useState({ calle: '', numero: '', barrio: '', observaciones: '' })
+
   const [carrito, setCarrito] = useState([]) 
 
   // 1. CARGA INICIAL
   useEffect(() => {
     const cargarTodo = async () => {
-      // Clientes
       const { data: clis } = await supabase.from('cliente_profesional').select('clientes(id, nombre, telefono)').eq('profesional_id', session.user.id)
       setClientes(clis?.map(d => d.clientes).filter(Boolean).sort((a,b) => a.nombre.localeCompare(b.nombre)) || [])
 
-      // Servicios y Combos
       const { data: servs } = await supabase.from('servicio_profesional').select('servicios(*)').eq('profesional_id', session.user.id).eq('servicios.activo', true)
       const { data: cmbs } = await supabase.from('combos').select('*').eq('profesional_id', session.user.id).eq('activo', true)
       
@@ -41,9 +44,8 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
       
       setCatalogo([...listaCombos, ...listaServicios])
 
-      // Turnos para validar choques
       const { data: tExistentes } = await supabase.from('sesiones')
-        .select('id, fecha_hora, duracion_total')
+        .select('id, fecha_hora, duracion_total, clientes(nombre)')
         .eq('profesional_id', session.user.id)
         .neq('estado', 'Anulada')
       setTurnosExistentes(tExistentes || [])
@@ -51,22 +53,22 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     cargarTodo()
 
     if (turnoInicial) {
-      const fechaObj = new Date(turnoInicial.fecha_hora)
-      const anio = fechaObj.getFullYear()
-      const mes = String(fechaObj.getMonth() + 1).padStart(2, '0')
-      const dia = String(fechaObj.getDate()).padStart(2, '0')
-      const horas = String(fechaObj.getHours()).padStart(2, '0')
-      const mins = String(fechaObj.getMinutes()).padStart(2, '0')
+      // CORRECCIÓN HORA: Tomamos los valores literales del string de la BD
+      const [fechaBD, horaFullBD] = turnoInicial.fecha_hora.split('T')
+      const horaBD = horaFullBD.slice(0, 5) // HH:mm
 
       setFormData({
         id: turnoInicial.id,
         cliente_id: turnoInicial.cliente_id,
         observaciones: turnoInicial.observaciones || '', 
         estado: turnoInicial.estado,
-        fecha: `${anio}-${mes}-${dia}`,
-        hora: `${horas}:${mins}`,
-        monto_cobrado: turnoInicial.monto_cobrado ?? ''
+        fecha: fechaBD,
+        hora: horaBD,
+        monto_cobrado: turnoInicial.monto_cobrado ?? '',
+        duracion_manual: turnoInicial.duracion_total || ''
       })
+      
+      setADomicilio(turnoInicial.a_domicilio || false)
 
       const itemsGuardados = turnoInicial.sesion_detalles?.map(d => ({
         tipoItem: d.servicio_id ? 'servicio' : 'combo',
@@ -81,72 +83,97 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     }
   }, [session.user.id, turnoInicial])
 
+  // Buscar dirección cuando el cliente cambia
+  useEffect(() => {
+    const fetchDireccion = async () => {
+      if (!formData.cliente_id) return
+      try {
+        const { data } = await supabase
+          .from('direcciones')
+          .select('*')
+          .eq('cliente_id', formData.cliente_id)
+          .maybeSingle() 
+        
+        if (data) {
+          setDireccion({ calle: data.calle || '', numero: data.numero || '', barrio: data.barrio || '', observaciones: data.observaciones || '' })
+        } else {
+          setDireccion({ calle: '', numero: '', barrio: '', observaciones: '' })
+        }
+      } catch (err) { console.error(err) }
+    }
+    fetchDireccion()
+  }, [formData.cliente_id])
+
+  const handleDireccionChange = (e) => {
+    setDireccion(prev => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
   // 2. CÁLCULOS DINÁMICOS
   const totales = useMemo(() => {
     return {
       monto: carrito.reduce((acc, i) => acc + Number(i.precio_actual), 0),
-      duracion: carrito.reduce((acc, i) => acc + (i.duracion_minutos || 0), 0)
+      duracion_servicios: carrito.reduce((acc, i) => acc + (i.duracion_minutos || 0), 0)
     }
   }, [carrito])
 
-  // Si cambia el estado a "Cobrada" y no hay monto cobrado, sugerir el total
+  // Autocompletar duración manual (solo en turnos nuevos)
+  useEffect(() => {
+    if (!formData.duracion_manual && totales.duracion_servicios > 0 && !turnoInicial) {
+      setFormData(prev => ({ ...prev, duracion_manual: totales.duracion_servicios }))
+    }
+  }, [totales.duracion_servicios, turnoInicial])
+
+  // Autocompletar cobro
   useEffect(() => {
     if (formData.estado === 'Cobrada' && !formData.monto_cobrado && totales.monto > 0) {
       setFormData(prev => ({ ...prev, monto_cobrado: totales.monto }))
     }
   }, [formData.estado, totales.monto])
 
-  // 3. MANEJO DEL CARRITO (CHECKBOX)
+  // 3. MANEJO DEL CARRITO
   const toggleItem = (item) => {
     setCarrito(prev => {
       const existe = prev.find(i => i.idUnico === item.idUnico)
-      if (existe) return prev.filter(i => i.idUnico !== item.idUnico) // Quitar
-      return [...prev, item] // Agregar
+      if (existe) return prev.filter(i => i.idUnico !== item.idUnico)
+      return [...prev, item]
     })
   }
 
-  // 4. VALIDACIONES Y GUARDADO
-  const validarDisponibilidad = () => {
-    if (!formData.fecha || !formData.hora) {
-      setFeedback({ tipo: 'error', mensaje: 'Falta la fecha o la hora.' });
-      return false;
-    }
-    if (carrito.length === 0) {
-      setFeedback({ tipo: 'error', mensaje: 'Debes seleccionar al menos un servicio o combo.' });
-      return false;
-    }
-
-    const inicioNuevo = new Date(`${formData.fecha}T${formData.hora}:00`);
-    const finNuevo = new Date(inicioNuevo.getTime() + totales.duracion * 60000);
-
-    const choque = turnosExistentes.find(t => {
-      if (t.id === formData.id) return false;
-      const inicioE = new Date(t.fecha_hora);
-      const finE = new Date(inicioE.getTime() + (t.duracion_total || 0) * 60000);
-      return (inicioNuevo < finE && finNuevo > inicioE);
-    });
-
-    if (choque) {
-      setFeedback({ tipo: 'error', mensaje: '⚠️ El horario choca con otro turno. Terminará a las ' + finNuevo.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
-      return false;
-    }
-
-    const hoy = new Date();
-    hoy.setHours(0,0,0,0);
-    const fechaCita = new Date(`${formData.fecha}T00:00:00`);
-    
-    if (fechaCita < hoy && formData.estado === 'Pendiente') {
-      setFeedback({ tipo: 'error', mensaje: '⚠️ Una cita de un día pasado no puede estar "Pendiente". Selecciona Cobrada, Ausente o Anulada.' });
-      return false;
-    }
-
-    return true;
-  }
-
+  // 4. GUARDADO
   const handleGuardar = async (e) => {
     e.preventDefault();
     setFeedback(null);
-    if (!validarDisponibilidad()) return;
+    
+    if (!formData.fecha || !formData.hora) {
+      setFeedback({ tipo: 'error', mensaje: 'Falta la fecha o la hora.' }); return;
+    }
+    if (carrito.length === 0) {
+      setFeedback({ tipo: 'error', mensaje: 'Debes seleccionar al menos un servicio o combo.' }); return;
+    }
+
+    const inicioNuevo = new Date(`${formData.fecha}T${formData.hora}:00`);
+    const duracionActual = parseInt(formData.duracion_manual) || totales.duracion_servicios;
+    const finNuevo = new Date(inicioNuevo.getTime() + duracionActual * 60000);
+
+    // Validación de choque
+    const choque = turnosExistentes.find(t => {
+      if (t.id === formData.id) return false;
+      const [fE, hE] = t.fecha_hora.split('T');
+      const inicioE = new Date(`${fE}T${hE.slice(0,8)}`);
+      const finE = new Date(inicioE.getTime() + (t.duracion_total + 10) * 60000);
+      return (inicioNuevo < finE && finNuevo > inicioE);
+    });
+
+    if (choque && !confirmarSuperposicion) {
+      // CORRECCIÓN: Usamos 'choque' en lugar de 't'
+      const horaChoque = choque.fecha_hora.split('T')[1].slice(0,5);
+      setFeedback({ 
+        tipo: 'alerta', 
+        mensaje: `⚠️ Superposición detectada: Tienes un turno a las ${horaChoque}hs con ${choque.clientes?.nombre}.` 
+      });
+      setConfirmarSuperposicion(true);
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -155,10 +182,11 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         profesional_id: session.user.id,
         fecha_hora: `${formData.fecha}T${formData.hora}:00`,
         monto_total: totales.monto,
-        duracion_total: totales.duracion,
+        duracion_total: duracionActual,
         monto_cobrado: parseFloat(formData.monto_cobrado) || 0,
         observaciones: formData.observaciones,
-        estado: formData.estado
+        estado: formData.estado,
+        a_domicilio: aDomicilio
       };
 
       let sesionId = formData.id;
@@ -179,15 +207,24 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
       }));
       await supabase.from('sesion_detalles').insert(lineas);
 
+      if (aDomicilio && formData.cliente_id) {
+        await supabase.from('direcciones').upsert({
+          cliente_id: formData.cliente_id,
+          calle: direccion.calle,
+          numero: direccion.numero,
+          barrio: direccion.barrio,
+          observaciones: direccion.observaciones
+        }, { onConflict: 'cliente_id' })
+      }
+
       onGuardar();
     } catch (error) {
-      setFeedback({ tipo: 'error', mensaje: "Error BD: " + error.message });
+      setFeedback({ tipo: 'error', mensaje: "Error: " + error.message });
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  // Ordenar catálogo: seleccionados primero
   const catalogoOrdenado = [...catalogo].sort((a, b) => {
     const aSel = carrito.some(i => i.idUnico === a.idUnico);
     const bSel = carrito.some(i => i.idUnico === b.idUnico);
@@ -197,14 +234,17 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
   }).filter(item => item.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
   return (
-    <form onSubmit={handleGuardar} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <form onSubmit={handleGuardar} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white">
       
-      {/* COLUMNA IZQUIERDA: DATOS DE LA CITA */}
+      {/* COLUMNA IZQUIERDA */}
       <div className="space-y-6">
         
         {feedback && (
-          <div className={`p-4 rounded-xl text-sm font-bold ${feedback.tipo === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-teal-50 text-teal-700'}`}>
+          <div className={`p-4 rounded-xl text-sm font-bold border ${feedback.tipo === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
             {feedback.mensaje}
+            {feedback.tipo === 'alerta' && (
+              <p className="mt-2 text-xs font-normal">Pulsa "Confirmar de todos modos" abajo para ignorar.</p>
+            )}
           </div>
         )}
 
@@ -228,6 +268,18 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
               <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Hora *</label>
               <input required type="time" value={formData.hora} onChange={e => setFormData({...formData, hora: e.target.value})} className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Duración Total (minutos) *</label>
+            <input 
+              required
+              type="number" 
+              value={formData.duracion_manual} 
+              onChange={e => setFormData({...formData, duracion_manual: e.target.value})} 
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-bold text-teal-700" 
+            />
+            <p className="text-[10px] text-stone-400 mt-1">Sugerido por servicios: {totales.duracion_servicios} min</p>
           </div>
         </div>
 
@@ -253,32 +305,54 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
             <textarea rows="2" value={formData.observaciones} onChange={e => setFormData({...formData, observaciones: e.target.value})} placeholder="Ej: Poner foco en cervicales..." className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"></textarea>
           </div>
         </div>
+
+        {/* DOMICILIO */}
+        <div className="border border-stone-200 rounded-2xl overflow-hidden mt-6">
+          <button type="button" onClick={() => setADomicilio(!aDomicilio)} className={`w-full px-5 py-4 flex items-center justify-between transition-colors focus:outline-none ${aDomicilio ? 'bg-teal-50/50 border-b border-stone-200' : 'bg-stone-50 hover:bg-stone-100'}`}>
+            <div className="flex items-center gap-3">
+              <span className={`text-xl ${aDomicilio ? 'text-teal-600' : 'text-stone-400 grayscale'}`}>🏠</span>
+              <div className="text-left">
+                <p className={`font-bold ${aDomicilio ? 'text-teal-800' : 'text-stone-600'}`}>Atención a domicilio</p>
+                <p className="text-xs text-stone-500 font-normal">Agendar turno en la dirección del paciente</p>
+              </div>
+            </div>
+            <div className={`w-12 h-6 rounded-full flex items-center transition-colors px-1 ${aDomicilio ? 'bg-teal-500' : 'bg-stone-300'}`}>
+              <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${aDomicilio ? 'translate-x-6' : 'translate-x-0'}`}></div>
+            </div>
+          </button>
+          {aDomicilio && (
+            <div className="p-5 bg-white grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Calle</label>
+                <input type="text" name="calle" value={direccion.calle} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500" />
+              </div>
+              <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Nro</label>
+              <input type="text" name="numero" value={direccion.numero} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500" /></div>
+              <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Barrio</label>
+              <input type="text" name="barrio" value={direccion.barrio} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500" /></div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* COLUMNA DERECHA: SELECCIÓN DE SERVICIOS (ESTILO COMBOS) */}
+      {/* COLUMNA DERECHA */}
       <div className="flex flex-col h-[600px]">
         <div className="mb-4">
           <h3 className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-3">Servicios a Realizar</h3>
-          <input type="text" placeholder="Filtrar servicios o combos..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none text-sm bg-stone-50" />
+          <input type="text" placeholder="Filtrar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none text-sm bg-stone-50" />
         </div>
 
         <div className="flex-1 overflow-y-auto border border-stone-100 rounded-2xl p-2 space-y-2 bg-stone-50/30">
           {catalogoOrdenado.map(item => {
             const isSelected = carrito.some(i => i.idUnico === item.idUnico);
             return (
-              <div 
-                key={item.idUnico} 
-                className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isSelected ? 'bg-white border-teal-500 shadow-md ring-1 ring-teal-500' : 'bg-white border-stone-100 hover:border-stone-300'}`}
-                onClick={() => toggleItem(item)}
-              >
+              <div key={item.idUnico} className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isSelected ? 'bg-white border-teal-500 shadow-md ring-1 ring-teal-500' : 'bg-white border-stone-100'}`} onClick={() => toggleItem(item)}>
                 <div className="flex items-center gap-3">
-                   <input type="checkbox" readOnly checked={isSelected} className="w-5 h-5 text-teal-600 rounded cursor-pointer pointer-events-none" />
-                   <div>
-                     <p className={`font-bold text-sm ${isSelected ? 'text-teal-700' : 'text-stone-600'}`}>
-                       {item.tipoItem === 'combo' ? '🎁 ' : ''}{item.nombre}
-                     </p>
-                     <p className="text-[10px] text-stone-400 uppercase tracking-widest">{item.duracion_minutos} min</p>
-                   </div>
+                  <input type="checkbox" readOnly checked={isSelected} className="w-5 h-5 text-teal-600 rounded" />
+                  <div>
+                    <p className={`font-bold text-sm ${isSelected ? 'text-teal-700' : 'text-stone-600'}`}>{item.nombre}</p>
+                    <p className="text-[10px] text-stone-400 uppercase tracking-widest">{item.duracion_minutos} min</p>
+                  </div>
                 </div>
                 <div className="font-bold text-stone-800">${item.precio_actual}</div>
               </div>
@@ -286,23 +360,26 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
           })}
         </div>
 
-        {/* Totales y Botonera */}
         <div className="pt-4 border-t border-stone-200 mt-4">
           <div className="flex justify-between items-center mb-4 px-2">
             <div>
               <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Duración Estimada</p>
-              <p className="text-lg font-bold text-stone-600">{totales.duracion} min</p>
+              <p className="text-lg font-bold text-stone-600">{formData.duracion_manual || 0} min</p>
             </div>
             <div className="text-right">
-               <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">A Cobrar (Lista)</p>
-               <p className="text-3xl font-black text-stone-800">${totales.monto.toFixed(2)}</p>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">A Cobrar (Lista)</p>
+              <p className="text-3xl font-black text-stone-800">${totales.monto.toFixed(2)}</p>
             </div>
           </div>
           
           <div className="flex gap-3">
             <button type="button" onClick={onCancelar} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-100 rounded-xl transition-colors">Cancelar</button>
-            <button type="submit" disabled={isSubmitting} className="flex-[2] bg-teal-600 text-white py-3 rounded-xl font-bold hover:bg-teal-700 shadow-md transition-all">
-              {isSubmitting ? 'Guardando...' : (formData.id ? 'Actualizar Turno' : 'Agendar Turno')}
+            <button 
+                type="submit" 
+                disabled={isSubmitting} 
+                className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-md transition-all ${confirmarSuperposicion ? 'bg-amber-600 hover:bg-amber-700' : 'bg-teal-600 hover:bg-teal-700'}`}
+            >
+              {isSubmitting ? 'Guardando...' : (confirmarSuperposicion ? 'Confirmar de todos modos' : (formData.id ? 'Actualizar Turno' : 'Agendar Turno'))}
             </button>
           </div>
         </div>

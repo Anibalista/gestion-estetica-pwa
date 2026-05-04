@@ -2,35 +2,45 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 
-export function TurnosLista({ session, onEditar }) {
+export function TurnosLista({ session, onEditar, onVerDetalle }) {
   const [turnos, setTurnos] = useState([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('Todos')
   const [verAnteriores, setVerAnteriores] = useState(false)
 
-  // 1. FUNCIÓN DE FORMATEO (Definida correctamente aquí)
+  // 1. FUNCIÓN DE FORMATEO (Literal para evitar líos de zona horaria)
   const formatearFechaHora = (isoString) => {
     if (!isoString) return { dia: '--/--/--', hora: '--:--' };
     
-    // Convertimos el string de la BD a un objeto Date local
-    const fecha = new Date(isoString);
-    
+    // MÉTODO LITERAL: Evita desfases por zona horaria del sistema
+    const [fechaPart, horaPartFull] = isoString.split('T');
+    const [anio, mes, dia] = fechaPart.split('-');
+    const hora = horaPartFull.slice(0, 5); // Tomamos HH:mm directamente
+
     return {
-      dia: fecha.toLocaleDateString('es-AR', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric',
-        timeZone: 'America/Argentina/Buenos_Aires' // Forzamos tu zona horaria
-      }),
-      hora: fecha.toLocaleTimeString('es-AR', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'America/Argentina/Buenos_Aires'
-      })
+      dia: `${dia}/${mes}/${anio}`,
+      hora: hora
     };
   }
+
+  // 2. FUNCIÓN PARA ACTUALIZAR ESTADO DIRECTAMENTE DESDE LA LISTA
+  const actualizarEstado = async (id, nuevoEstado) => {
+    try {
+      const { error } = await supabase
+        .from('sesiones')
+        .update({ estado: nuevoEstado })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Actualizamos el estado local para que el cambio se vea al instante
+      setTurnos(prev => prev.map(t => t.id === id ? { ...t, estado: nuevoEstado } : t));
+    } catch (err) {
+      console.error("Error al actualizar estado:", err.message);
+      alert("No se pudo actualizar el estado. Intenta de nuevo.");
+    }
+  };
 
   useEffect(() => {
     fetchTurnos()
@@ -56,7 +66,6 @@ export function TurnosLista({ session, onEditar }) {
         .order('fecha_hora', { ascending: true })
 
       if (!verAnteriores) {
-        // Solo desde hoy a las 00:00 en adelante
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
         query = query.gte('fecha_hora', hoy.toISOString());
@@ -72,13 +81,6 @@ export function TurnosLista({ session, onEditar }) {
     }
   }
 
-  const cambiarEstado = async (id, nuevoEstado) => {
-    const { error } = await supabase.from('sesiones').update({ estado: nuevoEstado }).eq('id', id);
-    if (!error) {
-      setTurnos(prev => prev.map(t => t.id === id ? { ...t, estado: nuevoEstado } : t));
-    }
-  }
-
   const turnosFiltrados = turnos.filter(t => {
     const matchEstado = filtroEstado === 'Todos' || t.estado === filtroEstado;
     const matchBusqueda = t.clientes?.nombre.toLowerCase().includes(busqueda.toLowerCase());
@@ -90,7 +92,7 @@ export function TurnosLista({ session, onEditar }) {
   return (
     <div className="flex flex-col h-full bg-white">
       
-      {/* BARRA DE FILTROS RESPONSIVE */}
+      {/* FILTROS */}
       <div className="bg-stone-50 p-4 border-b border-stone-200 space-y-4">
         <div className="flex flex-col md:flex-row justify-between gap-4">
           <div className="relative flex-1">
@@ -117,7 +119,6 @@ export function TurnosLista({ session, onEditar }) {
           </label>
         </div>
 
-        {/* SELECTOR DE ESTADOS (Con Scroll Horizontal en Móvil) */}
         <div className="flex overflow-x-auto pb-1 gap-2 no-scrollbar">
           {['Todos', 'Pendiente', 'Cobrada', 'Ausente', 'Anulada'].map(est => (
             <button
@@ -135,7 +136,7 @@ export function TurnosLista({ session, onEditar }) {
         </div>
       </div>
 
-      {/* LISTADO DE TURNOS */}
+      {/* TABLA */}
       <div className="overflow-x-auto flex-1">
         <table className="w-full text-left text-sm text-stone-600">
           <thead className="bg-white border-b border-stone-200 text-stone-400 uppercase text-[10px] tracking-wider font-bold">
@@ -149,72 +150,101 @@ export function TurnosLista({ session, onEditar }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
-            {turnosFiltrados.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-stone-400 font-light italic">
-                  No hay turnos agendados para este periodo.
+          {turnosFiltrados.map((t) => {
+            const ahora = new Date();
+            const fechaTurno = new Date(t.fecha_hora);
+            const diferenciaMinutos = (fechaTurno - ahora) / 60000;
+            const esProximo = diferenciaMinutos > 0 && diferenciaMinutos <= 60;
+            const finTurnoMasTolerancia = new Date(fechaTurno.getTime() + (t.duracion_total + 15) * 60000);
+            const esCritico = t.estado === 'Pendiente' && ahora > finTurnoMasTolerancia;
+
+            const horariolocal = formatearFechaHora(t.fecha_hora);
+
+            return (
+              <tr 
+                key={t.id} 
+                className={`transition-all border-b border-stone-100 ${
+                  esCritico ? 'bg-red-50 hover:bg-red-100' : 
+                  esProximo ? 'bg-teal-50/50 hover:bg-teal-50' : 'hover:bg-stone-50'
+                }`}
+              >
+                <td className="px-6 py-4">
+                  <div className={`font-black text-sm ${esCritico ? 'text-red-600 animate-pulse' : esProximo ? 'text-teal-600' : 'text-stone-700'}`}>
+                    {horariolocal.hora}
+                  </div>
+                  <div className="text-[10px] text-stone-400 font-medium">{horariolocal.dia}</div>
+                </td>
+
+                <td className="px-6 py-4">
+                  <div className="font-bold text-stone-800 flex items-center gap-2">
+                    {t.clientes?.nombre}
+                    {t.a_domicilio && <span title="Cita a Domicilio" className="text-teal-600">🏠</span>}
+                  </div>
+                  <div className="text-[10px] text-stone-400 font-mono">{t.clientes?.telefono}</div>
+                </td>
+
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    {t.sesion_detalles?.map((d, idx) => (
+                      <span key={idx} className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md border border-stone-200">
+                        {d.servicios?.nombre || d.combos?.nombre}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+
+                <td className="px-6 py-4">
+                  <div className="text-sm font-black text-stone-700">${t.monto_total}</div>
+                  <div className="text-[10px] text-stone-400 uppercase tracking-widest">{t.duracion_total || 0} min</div>
+                </td>
+
+                {/* CAMBIO AQUÍ: Selector de estado interactivo */}
+                <td className="px-6 py-4 text-center">
+                  <select
+                    value={t.estado}
+                    onChange={(e) => actualizarEstado(t.id, e.target.value)}
+                    className={`px-2 py-1 rounded-full text-[10px] font-black uppercase shadow-sm border cursor-pointer outline-none transition-all ${
+                      t.estado === 'Cobrada' ? 'bg-teal-100 text-teal-700 border-teal-200' :
+                      t.estado === 'Anulada' ? 'bg-red-100 text-red-700 border-red-200' :
+                      t.estado === 'Ausente' ? 'bg-stone-200 text-stone-600 border-stone-300' :
+                      (t.estado === 'Pendiente' && esCritico) ? 'bg-red-600 text-white border-red-700 animate-pulse' : 
+                      'bg-amber-100 text-amber-700 border-amber-200'
+                    }`}
+                  >
+                    <option value="Pendiente">{t.estado === 'Pendiente' && esCritico ? '⚠️ Revisar' : 'Pendiente'}</option>
+                    <option value="Cobrada">Cobrada</option>
+                    <option value="Ausente">Ausente</option>
+                    <option value="Anulada">Anulada</option>
+                  </select>
+                </td>
+
+                <td className="px-6 py-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button 
+                      onClick={() => onVerDetalle(t)}
+                      className="bg-white border border-stone-200 text-stone-400 hover:text-teal-600 p-2 rounded-xl transition-all shadow-sm"
+                      title="Ver Ficha"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => onEditar(t)}
+                      className="bg-white border border-stone-200 text-stone-400 hover:text-teal-600 p-2 rounded-xl transition-all shadow-sm"
+                      title="Editar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 0L20 6.172a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
-            ) : (
-              turnosFiltrados.map((t) => {
-                const { dia, hora } = formatearFechaHora(t.fecha_hora);
-                return (
-                  <tr key={t.id} className={`hover:bg-stone-50/50 group transition-colors ${t.estado === 'Anulada' || t.estado === 'Ausente' ? 'opacity-50 grayscale bg-stone-50' : ''}`}>
-                    <td className="px-6 py-4">
-                      <div className="font-black text-stone-700">{dia}</div>
-                      <div className="text-teal-600 font-bold text-xs">{hora} hs</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-stone-800">{t.clientes?.nombre}</div>
-                      <div className="text-[10px] text-stone-400 font-mono">{t.clientes?.telefono}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
-                        {t.sesion_detalles?.map((d, i) => (
-                          <span key={i} className="bg-stone-100 text-stone-500 text-[9px] px-2 py-0.5 rounded border border-stone-200 font-bold uppercase">
-                            {d.servicios?.nombre || d.combos?.nombre}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="text-stone-800 font-black">${t.monto_cobrado > 0 ? t.monto_cobrado : t.monto_total}</div>
-                      {t.monto_cobrado > 0 && t.monto_cobrado !== t.monto_total && (
-                        <div className="text-[9px] text-amber-600 font-bold line-through">${t.monto_total}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <select 
-                        value={t.estado} 
-                        onChange={(e) => cambiarEstado(t.id, e.target.value)}
-                        className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border-none outline-none cursor-pointer shadow-sm ${
-                          t.estado === 'Cobrada' ? 'bg-teal-100 text-teal-700' :
-                          t.estado === 'Anulada' ? 'bg-red-100 text-red-700' :
-                          t.estado === 'Ausente' ? 'bg-stone-200 text-stone-600' :
-                          'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Cobrada">Cobrada</option>
-                        <option value="Anulada">Anulada</option>
-                        <option value="Ausente">Ausente</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => onEditar(t)}
-                        className="bg-white border border-stone-200 text-stone-400 hover:text-teal-600 p-2 rounded-xl transition-all shadow-sm active:scale-90"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
+            )
+          })}
+        </tbody>
         </table>
       </div>
     </div>
