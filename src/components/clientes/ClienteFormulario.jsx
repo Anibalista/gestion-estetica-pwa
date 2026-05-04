@@ -6,6 +6,7 @@ import { capitalizarNombres, capitalizarPrimeraLetra } from '../../utils/formatt
 export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [mostrarDomicilio, setMostrarDomicilio] = useState(false) // Control del acordeón
 
   const [formData, setFormData] = useState({
     id: null,
@@ -18,7 +19,8 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
     diabetes: false,
     varices: false,
     cirugias_recientes: false,
-    observaciones_extra: ''
+    observaciones_extra: '',
+    direccion: { calle: '', numero: '', barrio: '', observaciones: '' }
   })
 
   // 1. CARGA INICIAL
@@ -47,19 +49,47 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
         codigoPais: pais,
         codigoArea: area,
         numeroLocal: local,
-        // Usamos Boolean() para asegurar que siempre sea true o false (nunca null)
         hipertension: Boolean(pat.hipertension),
         diabetes: Boolean(pat.diabetes),
         varices: Boolean(pat.varices),
         cirugias_recientes: Boolean(pat.cirugias_recientes),
-        observaciones_extra: pat.observaciones_extra || ''
+        observaciones_extra: pat.observaciones_extra || '',
+        direccion: { calle: '', numero: '', barrio: '', observaciones: '' }
       })
+
+      // Buscar si tiene domicilio guardado
+      cargarDireccion(clienteInicial.id)
     }
   }, [clienteInicial])
+
+  const cargarDireccion = async (clienteId) => {
+    try {
+      const { data, error } = await supabase
+        .from('direcciones')
+        .select('*')
+        .eq('cliente_id', clienteId)
+        .single()
+      
+      if (data) {
+        setFormData(prev => ({ ...prev, direccion: data }))
+        setMostrarDomicilio(true)
+      }
+    } catch (err) {
+      // Es normal que falle si no tiene dirección (arroja error al no encontrar fila con single())
+      console.log("Sin dirección previa.")
+    }
+  }
 
   // 2. EL GRAN ARREGLO: Función universal para actualizar campos usando 'prev'
   const handleChange = (campo, valor) => {
     setFormData(prev => ({ ...prev, [campo]: valor }))
+  }
+
+  const handleDireccionChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      direccion: { ...prev.direccion, [e.target.name]: e.target.value }
+    }))
   }
 
   // 3. GUARDADO EN BASE DE DATOS
@@ -81,8 +111,6 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
 
       if (clienteId) {
         // --- ACTUALIZAR EXISTENTE ---
-       
-
         const { error: errCli } = await supabase.from('clientes')
           .update({ nombre: nombreLimpio, telefono: telefonoFinal, fecha_nacimiento: fechaParaEnviar })
           .eq('id', clienteId)
@@ -123,6 +151,22 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
         if (errPat) throw errPat
       }
 
+      // --- GESTIÓN DE DOMICILIO ---
+      if (mostrarDomicilio) {
+        const { error: dirError } = await supabase
+          .from('direcciones')
+          .upsert({
+            cliente_id: clienteId,
+            calle: formData.direccion.calle,
+            numero: formData.direccion.numero,
+            barrio: formData.direccion.barrio,
+            observaciones: formData.direccion.observaciones
+          }, { onConflict: 'cliente_id' })
+        if (dirError) throw dirError
+      } else if (formData.id && !mostrarDomicilio) {
+        await supabase.from('direcciones').delete().eq('cliente_id', clienteId)
+      }
+
       setFeedback({ tipo: 'exito', mensaje: '¡Datos guardados correctamente!' })
       setTimeout(() => onGuardadoExitoso(), 1500)
 
@@ -135,7 +179,7 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
   }
 
   return (
-    <form onSubmit={handleGuardar} className="p-6 space-y-8">
+    <form onSubmit={handleGuardar} className="p-6 space-y-8 bg-white">
       {feedback && (
         <div className={`p-4 rounded-lg text-sm font-medium ${feedback.tipo === 'exito' ? 'bg-teal-50 text-teal-800' : 'bg-red-50 text-red-800'}`}>
           {feedback.mensaje}
@@ -157,11 +201,7 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
       {/* 2. TELÉFONO */}
       <div>
         <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Teléfono / WhatsApp *</label>
-        
-        {/* flex-col en celular, flex-row en pantallas más grandes */}
         <div className="flex flex-col sm:flex-row gap-2">
-          
-          {/* Fila 1 en celular: País y Área juntos */}
           <div className="flex gap-2 w-full sm:w-auto">
             <select 
               value={formData.codigoPais} 
@@ -172,7 +212,6 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
               <option value="+598">🇺🇾 +598</option>
               <option value="+56">🇨🇱 +56</option>
             </select>
-            
             <input 
               required 
               type="number" 
@@ -182,8 +221,6 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
               className="w-full sm:w-32 px-4 py-2 border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-teal-500" 
             />
           </div>
-          
-          {/* Fila 2 en celular: Número Local (salta hacia abajo) */}
           <input 
             required 
             type="number" 
@@ -192,10 +229,7 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
             onChange={(e) => handleChange('numeroLocal', e.target.value)} 
             className="w-full sm:flex-1 px-4 py-2 border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-teal-500" 
           />
-          
         </div>
-        
-        {/* Vista previa opcional si ya está escribiendo */}
         {(formData.codigoArea || formData.numeroLocal) && (
           <p className="text-xs text-stone-500 mt-2 ml-1">
             Se guardará: <strong className="text-teal-600">({formData.codigoPais}){formData.codigoArea}-{formData.numeroLocal}</strong>
@@ -218,6 +252,47 @@ export function ClienteFormulario({ clienteInicial, session, onGuardadoExitoso }
       <div>
         <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Otras Patologías / Notas</label>
         <textarea rows="3" value={formData.observaciones_extra} onChange={(e) => handleChange('observaciones_extra', e.target.value)} className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"></textarea>
+      </div>
+
+      {/* 5. SECCIÓN DOMICILIO (CONTRAÍBLE) */}
+      <div className="border border-stone-200 rounded-xl overflow-hidden">
+        <button 
+          type="button" 
+          onClick={() => setMostrarDomicilio(!mostrarDomicilio)}
+          className={`w-full px-6 py-4 flex items-center justify-between transition-colors focus:outline-none ${mostrarDomicilio ? 'bg-teal-50/50 border-b border-stone-200' : 'bg-stone-50 hover:bg-stone-100'}`}
+        >
+          <div className="flex items-center gap-3">
+            <span className={`text-xl transition-transform ${mostrarDomicilio ? 'text-teal-600' : 'text-stone-400 grayscale'}`}>🏠</span>
+            <div className="text-left">
+              <p className={`font-bold ${mostrarDomicilio ? 'text-teal-800' : 'text-stone-600'}`}>Atención a domicilio</p>
+              <p className="text-xs text-stone-500 font-normal">Agrega la dirección si visitas a este cliente en su casa</p>
+            </div>
+          </div>
+          <div className={`w-12 h-6 rounded-full flex items-center transition-colors px-1 ${mostrarDomicilio ? 'bg-teal-500' : 'bg-stone-300'}`}>
+            <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${mostrarDomicilio ? 'translate-x-6' : 'translate-x-0'}`}></div>
+          </div>
+        </button>
+
+        {mostrarDomicilio && (
+          <div className="p-6 bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Calle</label>
+              <input type="text" name="calle" value={formData.direccion.calle} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg outline-none focus:border-teal-500" placeholder="Ej. Av. San Martín" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Número / Piso</label>
+              <input type="text" name="numero" value={formData.direccion.numero} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg outline-none focus:border-teal-500" placeholder="Ej. 1234 5°B" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Barrio / Ciudad</label>
+              <input type="text" name="barrio" value={formData.direccion.barrio} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg outline-none focus:border-teal-500" placeholder="Ej. Centro" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Indicaciones extra</label>
+              <input type="text" name="observaciones" value={formData.direccion.observaciones} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg outline-none focus:border-teal-500" placeholder="Ej. Timbre 2, rejas negras..." />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end pt-4 border-t border-stone-100">

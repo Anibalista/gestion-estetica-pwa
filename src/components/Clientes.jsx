@@ -38,7 +38,7 @@ export function Clientes({ session, initialModo = 'lista' }) {
         .from('cliente_profesional')
         .select(`
           cliente_id,
-          clientes ( *, patologias (*) )
+          clientes (*, patologias(*), direcciones(*))
         `)
         .eq('profesional_id', session.user?.id)
 

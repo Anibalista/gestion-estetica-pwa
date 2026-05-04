@@ -24,7 +24,13 @@ export function Productos({ session, initialModo = 'stock' }) {
           {modo === 'registrar' ? (productoAEditar ? 'Editar Producto' : 'Nuevo Producto') : 'Control de Stock'}
         </h2>
         {modo === 'stock' && (
-          <button onClick={() => setModo('registrar')} className="bg-teal-600 text-white px-4 py-2 rounded-lg font-medium shadow-sm hover:bg-teal-700 transition">
+          <button 
+            onClick={() => {
+              setProductoAEditar(null)
+              setModo('registrar')
+            }} 
+            className="bg-teal-600 text-white px-4 py-2 rounded-lg font-medium shadow-sm hover:bg-teal-700 transition"
+          >
             + Registrar Producto
           </button>
         )}
