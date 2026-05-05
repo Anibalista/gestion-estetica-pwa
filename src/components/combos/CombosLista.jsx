@@ -108,9 +108,13 @@ export function CombosLista({ session, onEditar, onNuevo }) {
             {/* Imagen del Cuerpo */}
             <div className="aspect-video w-full bg-stone-200 overflow-hidden relative">
               <img 
-                src={combo.url_imagen || 'https://via.placeholder.com/400x225?text=Sin+Imagen'} 
-                alt={combo.nombre}
+                src={combo.url_imagen || IMAGENES_GENERICAS[0].url} 
+                alt={combo.nombre} 
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "https://ukbvytobegdzwpetfshd.supabase.co/storage/v1/object/public/combos/genericas/zen.png";
+                }}
               />
               {!combo.activo && (
                 <div className="absolute inset-0 bg-stone-900/40 flex items-center justify-center">
