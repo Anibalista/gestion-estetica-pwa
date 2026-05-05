@@ -53,7 +53,11 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
         .from('sesiones')
         .select(`
           *,
-          clientes ( nombre, telefono ),
+          clientes ( 
+          nombre,
+          telefono,
+          direcciones ( * ) 
+          ),
           sesion_detalles (
             servicio_id,    
             combo_id,         

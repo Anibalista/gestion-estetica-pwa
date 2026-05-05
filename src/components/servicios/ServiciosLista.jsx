@@ -184,7 +184,7 @@ export function ServiciosLista({ session, onEditar, onNuevo }) {
                     </td>
                     
                     <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-2 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => onEditar(s)}
                           className="bg-stone-100 text-stone-600 px-3 py-1.5 rounded hover:bg-teal-100 hover:text-teal-700 transition-all text-xs font-bold"

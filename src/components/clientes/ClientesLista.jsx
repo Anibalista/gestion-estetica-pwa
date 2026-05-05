@@ -78,7 +78,7 @@ export function ClientesLista({ clientes, isLoading, onNuevo, onEditar, onVerDet
               
               {/* ACCIONES */}
               <td className="px-6 py-4 text-right">
-                <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                <div className="flex justify-end gap-2 opacity-100 lg:group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={(e) => { e.stopPropagation(); onEditar(cliente); }}
                     className="text-teal-600 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-md transition-colors font-medium text-xs active:scale-95"
