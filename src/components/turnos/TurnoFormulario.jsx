@@ -6,11 +6,15 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [busqueda, setBusqueda] = useState('')
-  const [confirmarSuperposicion, setConfirmarSuperposicion] = useState(false) 
-  
+  const [confirmarSuperposicion, setConfirmarSuperposicion] = useState(false)
+
+  // NUEVO: buscador clientes
+  const [busquedaCliente, setBusquedaCliente] = useState('')
+  const [mostrarClientes, setMostrarClientes] = useState(false)
+
   // Catálogos
   const [clientes, setClientes] = useState([])
-  const [catalogo, setCatalogo] = useState([]) 
+  const [catalogo, setCatalogo] = useState([])
   const [turnosExistentes, setTurnosExistentes] = useState([])
 
   const [formData, setFormData] = useState({
@@ -21,161 +25,299 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     observaciones: '',
     estado: 'Pendiente',
     monto_cobrado: '',
-    duracion_manual: '' 
+    duracion_manual: ''
   })
 
   // Estados para el domicilio
   const [aDomicilio, setADomicilio] = useState(false)
-  const [direccion, setDireccion] = useState({ calle: '', numero: '', barrio: '', observaciones: '' })
+  const [direccion, setDireccion] = useState({
+    calle: '',
+    numero: '',
+    barrio: '',
+    observaciones: ''
+  })
 
-  const [carrito, setCarrito] = useState([]) 
+  const [carrito, setCarrito] = useState([])
 
   // 1. CARGA INICIAL
   useEffect(() => {
     const cargarTodo = async () => {
-      const { data: clis } = await supabase.from('cliente_profesional').select('clientes(id, nombre, telefono)').eq('profesional_id', session.user.id)
-      setClientes(clis?.map(d => d.clientes).filter(Boolean).sort((a,b) => a.nombre.localeCompare(b.nombre)) || [])
+      const { data: clis } = await supabase
+        .from('cliente_profesional')
+        .select('clientes(id, nombre, telefono)')
+        .eq('profesional_id', session.user.id)
 
-      const { data: servs } = await supabase.from('servicio_profesional').select('servicios(*)').eq('profesional_id', session.user.id).eq('servicios.activo', true)
-      const { data: cmbs } = await supabase.from('combos').select('*').eq('profesional_id', session.user.id).eq('activo', true)
-      
-      const listaServicios = (servs?.map(d => d.servicios) || []).map(s => ({ ...s, tipoItem: 'servicio', idUnico: `serv_${s.id}` }))
-      const listaCombos = (cmbs || []).map(c => ({ ...c, tipoItem: 'combo', idUnico: `combo_${c.id}` }))
-      
+      setClientes(
+        clis
+          ?.map(d => d.clientes)
+          .filter(Boolean)
+          .sort((a, b) => a.nombre.localeCompare(b.nombre)) || []
+      )
+
+      const { data: servs } = await supabase
+        .from('servicio_profesional')
+        .select('servicios(*)')
+        .eq('profesional_id', session.user.id)
+        .eq('servicios.activo', true)
+
+      const { data: cmbs } = await supabase
+        .from('combos')
+        .select('*')
+        .eq('profesional_id', session.user.id)
+        .eq('activo', true)
+
+      const listaServicios = (servs?.map(d => d.servicios) || []).map(s => ({
+        ...s,
+        tipoItem: 'servicio',
+        idUnico: `serv_${s.id}`
+      }))
+
+      const listaCombos = (cmbs || []).map(c => ({
+        ...c,
+        tipoItem: 'combo',
+        idUnico: `combo_${c.id}`
+      }))
+
       setCatalogo([...listaCombos, ...listaServicios])
 
-      const { data: tExistentes } = await supabase.from('sesiones')
+      const { data: tExistentes } = await supabase
+        .from('sesiones')
         .select('id, fecha_hora, duracion_total, clientes(nombre)')
         .eq('profesional_id', session.user.id)
         .neq('estado', 'Anulada')
+
       setTurnosExistentes(tExistentes || [])
     }
+
     cargarTodo()
 
     if (turnoInicial) {
-      // CORRECCIÓN HORA: Tomamos los valores literales del string de la BD
       const [fechaBD, horaFullBD] = turnoInicial.fecha_hora.split('T')
-      const horaBD = horaFullBD.slice(0, 5) // HH:mm
+      const horaBD = horaFullBD.slice(0, 5)
 
       setFormData({
         id: turnoInicial.id,
         cliente_id: turnoInicial.cliente_id,
-        observaciones: turnoInicial.observaciones || '', 
+        observaciones: turnoInicial.observaciones || '',
         estado: turnoInicial.estado,
         fecha: fechaBD,
         hora: horaBD,
         monto_cobrado: turnoInicial.monto_cobrado ?? '',
         duracion_manual: turnoInicial.duracion_total || ''
       })
-      
+
       setADomicilio(turnoInicial.a_domicilio || false)
 
-      const itemsGuardados = turnoInicial.sesion_detalles?.map(d => ({
-        tipoItem: d.servicio_id ? 'servicio' : 'combo',
-        id: d.servicio_id || d.combo_id,
-        idUnico: d.servicio_id ? `serv_${d.servicio_id}` : `combo_${d.combo_id}`,
-        nombre: d.servicios?.nombre || d.combos?.nombre,
-        precio_actual: d.precio_cobrado,
-        duracion_minutos: d.servicios?.duracion_minutos || d.combos?.duracion_minutos || 0
-      })) || []
-      
+      const itemsGuardados =
+        turnoInicial.sesion_detalles?.map(d => ({
+          tipoItem: d.servicio_id ? 'servicio' : 'combo',
+          id: d.servicio_id || d.combo_id,
+          idUnico: d.servicio_id
+            ? `serv_${d.servicio_id}`
+            : `combo_${d.combo_id}`,
+          nombre: d.servicios?.nombre || d.combos?.nombre,
+          precio_actual: d.precio_cobrado,
+          duracion_minutos:
+            d.servicios?.duracion_minutos ||
+            d.combos?.duracion_minutos ||
+            0
+        })) || []
+
       setCarrito(itemsGuardados)
     }
   }, [session.user.id, turnoInicial])
+
+  // NUEVO: autocompletar texto del cliente seleccionado
+  useEffect(() => {
+    if (formData.cliente_id && clientes.length > 0) {
+      const cliente = clientes.find(c => c.id === formData.cliente_id)
+
+      if (cliente) {
+        setBusquedaCliente(
+          `${cliente.nombre}${
+            cliente.telefono ? ` (${cliente.telefono})` : ''
+          }`
+        )
+      }
+    }
+  }, [formData.cliente_id, clientes])
 
   // Buscar dirección cuando el cliente cambia
   useEffect(() => {
     const fetchDireccion = async () => {
       if (!formData.cliente_id) return
+
       try {
         const { data } = await supabase
           .from('direcciones')
           .select('*')
           .eq('cliente_id', formData.cliente_id)
-          .maybeSingle() 
-        
+          .maybeSingle()
+
         if (data) {
-          setDireccion({ calle: data.calle || '', numero: data.numero || '', barrio: data.barrio || '', observaciones: data.observaciones || '' })
+          setDireccion({
+            calle: data.calle || '',
+            numero: data.numero || '',
+            barrio: data.barrio || '',
+            observaciones: data.observaciones || ''
+          })
         } else {
-          setDireccion({ calle: '', numero: '', barrio: '', observaciones: '' })
+          setDireccion({
+            calle: '',
+            numero: '',
+            barrio: '',
+            observaciones: ''
+          })
         }
-      } catch (err) { console.error(err) }
+      } catch (err) {
+        console.error(err)
+      }
     }
+
     fetchDireccion()
   }, [formData.cliente_id])
 
-  const handleDireccionChange = (e) => {
-    setDireccion(prev => ({ ...prev, [e.target.name]: e.target.value }))
+  const handleDireccionChange = e => {
+    setDireccion(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }))
   }
 
   // 2. CÁLCULOS DINÁMICOS
   const totales = useMemo(() => {
     return {
-      monto: carrito.reduce((acc, i) => acc + Number(i.precio_actual), 0),
-      duracion_servicios: carrito.reduce((acc, i) => acc + (i.duracion_minutos || 0), 0)
+      monto: carrito.reduce(
+        (acc, i) => acc + Number(i.precio_actual),
+        0
+      ),
+      duracion_servicios: carrito.reduce(
+        (acc, i) => acc + (i.duracion_minutos || 0),
+        0
+      )
     }
   }, [carrito])
 
-  // Autocompletar duración manual (solo en turnos nuevos)
+  // NUEVO: filtro clientes
+  const clientesFiltrados = clientes.filter(c =>
+    `${c.nombre} ${c.telefono || ''}`
+      .toLowerCase()
+      .includes(busquedaCliente.toLowerCase())
+  )
+
+  // Autocompletar duración manual
   useEffect(() => {
-    if (!formData.duracion_manual && totales.duracion_servicios > 0 && !turnoInicial) {
-      setFormData(prev => ({ ...prev, duracion_manual: totales.duracion_servicios }))
+    if (
+      !formData.duracion_manual &&
+      totales.duracion_servicios > 0 &&
+      !turnoInicial
+    ) {
+      setFormData(prev => ({
+        ...prev,
+        duracion_manual: totales.duracion_servicios
+      }))
     }
   }, [totales.duracion_servicios, turnoInicial])
 
   // Autocompletar cobro
   useEffect(() => {
-    if (formData.estado === 'Cobrada' && !formData.monto_cobrado && totales.monto > 0) {
-      setFormData(prev => ({ ...prev, monto_cobrado: totales.monto }))
+    if (
+      formData.estado === 'Cobrada' &&
+      !formData.monto_cobrado &&
+      totales.monto > 0
+    ) {
+      setFormData(prev => ({
+        ...prev,
+        monto_cobrado: totales.monto
+      }))
     }
   }, [formData.estado, totales.monto])
 
   // 3. MANEJO DEL CARRITO
-  const toggleItem = (item) => {
+  const toggleItem = item => {
     setCarrito(prev => {
       const existe = prev.find(i => i.idUnico === item.idUnico)
-      if (existe) return prev.filter(i => i.idUnico !== item.idUnico)
+
+      if (existe) {
+        return prev.filter(i => i.idUnico !== item.idUnico)
+      }
+
       return [...prev, item]
     })
   }
 
   // 4. GUARDADO
-  const handleGuardar = async (e) => {
-    e.preventDefault();
-    setFeedback(null);
-    
+  const handleGuardar = async e => {
+    e.preventDefault()
+    setFeedback(null)
+
     if (!formData.fecha || !formData.hora) {
-      setFeedback({ tipo: 'error', mensaje: 'Falta la fecha o la hora.' }); return;
-    }
-    if (carrito.length === 0) {
-      setFeedback({ tipo: 'error', mensaje: 'Debes seleccionar al menos un servicio o combo.' }); return;
+      setFeedback({
+        tipo: 'error',
+        mensaje: 'Falta la fecha o la hora.'
+      })
+      return
     }
 
-    const inicioNuevo = new Date(`${formData.fecha}T${formData.hora}:00`);
-    const duracionActual = parseInt(formData.duracion_manual) || totales.duracion_servicios;
-    const finNuevo = new Date(inicioNuevo.getTime() + duracionActual * 60000);
+    if (!formData.cliente_id) {
+      setFeedback({
+        tipo: 'error',
+        mensaje: 'Debes seleccionar un paciente.'
+      })
+      return
+    }
+
+    if (carrito.length === 0) {
+      setFeedback({
+        tipo: 'error',
+        mensaje: 'Debes seleccionar al menos un servicio o combo.'
+      })
+      return
+    }
+
+    const inicioNuevo = new Date(
+      `${formData.fecha}T${formData.hora}:00`
+    )
+
+    const duracionActual =
+      parseInt(formData.duracion_manual) ||
+      totales.duracion_servicios
+
+    const finNuevo = new Date(
+      inicioNuevo.getTime() + duracionActual * 60000
+    )
 
     // Validación de choque
     const choque = turnosExistentes.find(t => {
-      if (t.id === formData.id) return false;
-      const [fE, hE] = t.fecha_hora.split('T');
-      const inicioE = new Date(`${fE}T${hE.slice(0,8)}`);
-      const finE = new Date(inicioE.getTime() + (t.duracion_total + 10) * 60000);
-      return (inicioNuevo < finE && finNuevo > inicioE);
-    });
+      if (t.id === formData.id) return false
+
+      const [fE, hE] = t.fecha_hora.split('T')
+
+      const inicioE = new Date(`${fE}T${hE.slice(0, 8)}`)
+
+      const finE = new Date(
+        inicioE.getTime() + (t.duracion_total + 10) * 60000
+      )
+
+      return inicioNuevo < finE && finNuevo > inicioE
+    })
 
     if (choque && !confirmarSuperposicion) {
-      // CORRECCIÓN: Usamos 'choque' en lugar de 't'
-      const horaChoque = choque.fecha_hora.split('T')[1].slice(0,5);
-      setFeedback({ 
-        tipo: 'alerta', 
-        mensaje: `⚠️ Superposición detectada: Tienes un turno a las ${horaChoque}hs con ${choque.clientes?.nombre}.` 
-      });
-      setConfirmarSuperposicion(true);
-      return;
+      const horaChoque = choque.fecha_hora
+        .split('T')[1]
+        .slice(0, 5)
+
+      setFeedback({
+        tipo: 'alerta',
+        mensaje: `⚠️ Superposición detectada: Tienes un turno a las ${horaChoque}hs con ${choque.clientes?.nombre}.`
+      })
+
+      setConfirmarSuperposicion(true)
+      return
     }
-    
-    setIsSubmitting(true);
+
+    setIsSubmitting(true)
+
     try {
       const datosSesion = {
         cliente_id: formData.cliente_id,
@@ -183,103 +325,253 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         fecha_hora: `${formData.fecha}T${formData.hora}:00`,
         monto_total: totales.monto,
         duracion_total: duracionActual,
-        monto_cobrado: parseFloat(formData.monto_cobrado) || 0,
+        monto_cobrado:
+          parseFloat(formData.monto_cobrado) || 0,
         observaciones: formData.observaciones,
         estado: formData.estado,
         a_domicilio: aDomicilio
-      };
+      }
 
-      let sesionId = formData.id;
+      let sesionId = formData.id
+
       if (sesionId) {
-        await supabase.from('sesiones').update(datosSesion).eq('id', sesionId);
-        await supabase.from('sesion_detalles').delete().eq('sesion_id', sesionId);
+        await supabase
+          .from('sesiones')
+          .update(datosSesion)
+          .eq('id', sesionId)
+
+        await supabase
+          .from('sesion_detalles')
+          .delete()
+          .eq('sesion_id', sesionId)
       } else {
-        const { data, error } = await supabase.from('sesiones').insert([datosSesion]).select().single();
-        if (error) throw error;
-        sesionId = data.id;
+        const { data, error } = await supabase
+          .from('sesiones')
+          .insert([datosSesion])
+          .select()
+          .single()
+
+        if (error) throw error
+
+        sesionId = data.id
       }
 
       const lineas = carrito.map(i => ({
         sesion_id: sesionId,
-        servicio_id: i.tipoItem === 'servicio' ? i.id : null,
+        servicio_id:
+          i.tipoItem === 'servicio' ? i.id : null,
         combo_id: i.tipoItem === 'combo' ? i.id : null,
         precio_cobrado: i.precio_actual
-      }));
-      await supabase.from('sesion_detalles').insert(lineas);
+      }))
+
+      await supabase
+        .from('sesion_detalles')
+        .insert(lineas)
 
       if (aDomicilio && formData.cliente_id) {
-        await supabase.from('direcciones').upsert({
-          cliente_id: formData.cliente_id,
-          calle: direccion.calle,
-          numero: direccion.numero,
-          barrio: direccion.barrio,
-          observaciones: direccion.observaciones
-        }, { onConflict: 'cliente_id' })
+        await supabase
+          .from('direcciones')
+          .upsert(
+            {
+              cliente_id: formData.cliente_id,
+              calle: direccion.calle,
+              numero: direccion.numero,
+              barrio: direccion.barrio,
+              observaciones: direccion.observaciones
+            },
+            { onConflict: 'cliente_id' }
+          )
       }
 
-      onGuardar();
+      onGuardar()
     } catch (error) {
-      setFeedback({ tipo: 'error', mensaje: "Error: " + error.message });
+      setFeedback({
+        tipo: 'error',
+        mensaje: 'Error: ' + error.message
+      })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
   }
 
-  const catalogoOrdenado = [...catalogo].sort((a, b) => {
-    const aSel = carrito.some(i => i.idUnico === a.idUnico);
-    const bSel = carrito.some(i => i.idUnico === b.idUnico);
-    if (aSel && !bSel) return -1;
-    if (!aSel && bSel) return 1;
-    return a.nombre.localeCompare(b.nombre);
-  }).filter(item => item.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+  const catalogoOrdenado = [...catalogo]
+    .sort((a, b) => {
+      const aSel = carrito.some(
+        i => i.idUnico === a.idUnico
+      )
+
+      const bSel = carrito.some(
+        i => i.idUnico === b.idUnico
+      )
+
+      if (aSel && !bSel) return -1
+      if (!aSel && bSel) return 1
+
+      return a.nombre.localeCompare(b.nombre)
+    })
+    .filter(item =>
+      item.nombre
+        .toLowerCase()
+        .includes(busqueda.toLowerCase())
+    )
 
   return (
-    <form onSubmit={handleGuardar} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white">
-      
+    <form
+      onSubmit={handleGuardar}
+      className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white"
+    >
       {/* COLUMNA IZQUIERDA */}
       <div className="space-y-6">
-        
         {feedback && (
-          <div className={`p-4 rounded-xl text-sm font-bold border ${feedback.tipo === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+          <div
+            className={`p-4 rounded-xl text-sm font-bold border ${
+              feedback.tipo === 'error'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+          >
             {feedback.mensaje}
+
             {feedback.tipo === 'alerta' && (
-              <p className="mt-2 text-xs font-normal">Pulsa "Confirmar de todos modos" abajo para ignorar.</p>
+              <p className="mt-2 text-xs font-normal">
+                Pulsa "Confirmar de todos modos" abajo para ignorar.
+              </p>
             )}
           </div>
         )}
 
         <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100 space-y-4">
+          {/* NUEVO SELECT CON BUSCADOR */}
           <div>
-            <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Paciente *</label>
-            <select required value={formData.cliente_id} onChange={e => setFormData({...formData, cliente_id: e.target.value})} className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-              <option value="">-- Seleccionar Paciente --</option>
-              {clientes.map(c => (
-                <option key={c.id} value={c.id}>{c.nombre} {c.telefono ? `(${c.telefono})` : ''}</option>
-              ))}
-            </select>
+            <label className="block text-xs font-bold text-stone-400 uppercase mb-2">
+              Paciente *
+            </label>
+
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar paciente..."
+                value={busquedaCliente}
+                onChange={e => {
+                  setBusquedaCliente(e.target.value)
+                  setMostrarClientes(true)
+                  setFormData({
+                    ...formData,
+                    cliente_id: ''
+                  })
+                }}
+                onFocus={() => setMostrarClientes(true)}
+                className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+              />
+
+              {mostrarClientes && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                  {clientesFiltrados.length > 0 ? (
+                    clientesFiltrados.map(c => (
+                      <button
+                        type="button"
+                        key={c.id}
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            cliente_id: c.id
+                          })
+
+                          setBusquedaCliente(
+                            `${c.nombre}${
+                              c.telefono
+                                ? ` (${c.telefono})`
+                                : ''
+                            }`
+                          )
+
+                          setMostrarClientes(false)
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-teal-50 border-b border-stone-100 last:border-b-0"
+                      >
+                        <p className="font-semibold text-stone-700">
+                          {c.nombre}
+                        </p>
+
+                        {c.telefono && (
+                          <p className="text-xs text-stone-400">
+                            {c.telefono}
+                          </p>
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-stone-400">
+                      No se encontraron pacientes
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Fecha *</label>
-              <input required type="date" value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500" />
+              <label className="block text-xs font-bold text-stone-400 uppercase mb-2">
+                Fecha *
+              </label>
+
+              <input
+                required
+                type="date"
+                value={formData.fecha}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    fecha: e.target.value
+                  })
+                }
+                className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"
+              />
             </div>
+
             <div>
-              <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Hora *</label>
-              <input required type="time" value={formData.hora} onChange={e => setFormData({...formData, hora: e.target.value})} className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500" />
+              <label className="block text-xs font-bold text-stone-400 uppercase mb-2">
+                Hora *
+              </label>
+
+              <input
+                required
+                type="time"
+                value={formData.hora}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    hora: e.target.value
+                  })
+                }
+                className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"
+              />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Duración Total (minutos) *</label>
-            <input 
+            <label className="block text-xs font-bold text-stone-400 uppercase mb-2">
+              Duración Total (minutos) *
+            </label>
+
+            <input
               required
-              type="number" 
-              value={formData.duracion_manual} 
-              onChange={e => setFormData({...formData, duracion_manual: e.target.value})} 
-              className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-bold text-teal-700" 
+              type="number"
+              value={formData.duracion_manual}
+              onChange={e =>
+                setFormData({
+                  ...formData,
+                  duracion_manual: e.target.value
+                })
+              }
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-bold text-teal-700"
             />
-            <p className="text-[10px] text-stone-400 mt-1">Sugerido por servicios: {totales.duracion_servicios} min</p>
+
+            <p className="text-[10px] text-stone-400 mt-1">
+              Sugerido por servicios:{' '}
+              {totales.duracion_servicios} min
+            </p>
           </div>
         </div>
 

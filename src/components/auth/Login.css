@@ -1,0 +1,386 @@
+/* src/components/auth/Login.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap');
+
+/* La caja principal de tu login */
+.login-page {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  background: #f7f8f4;
+  font-family: 'Inter', sans-serif;
+}
+
+/* =========================
+   LADO IZQUIERDO
+========================= */
+.login-left {
+  position: relative;
+  width: 55%;
+  overflow: hidden;
+  background-image: url('../../assets/imagen-spa-login.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(245, 245, 240, 0.82), rgba(245, 245, 240, 0.42));
+}
+
+.left-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 60px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #404840;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+/* ENCAPSULAMOS EL H1 */
+.login-page h1 {
+  font-family: 'Pinyon Script', cursive;
+  font-size: 56px;
+  color: #1a1e1a;
+  line-height: 1.1;
+  margin-top: auto;
+  margin-bottom: 40px;
+}
+
+.login-page h1 span {
+  color: #5a6b52;
+}
+
+.features {
+  display: flex;
+  gap: 24px;
+  color: #404840;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* =========================
+   LADO DERECHO Y TARJETAS
+========================= */
+.login-right {
+  width: 45%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  padding: 40px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+.logo {
+  width: 48px;
+  height: auto;
+}
+
+.logo-box h2 {
+  font-size: 22px;
+  font-weight: 900;
+  color: #1a1e1a;
+  margin-bottom: 2px;
+}
+
+.logo-box p {
+  font-size: 13px;
+  color: #8f958f;
+  font-weight: 500;
+}
+
+.welcome-box h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #1a1e1a;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.welcome-box p {
+  font-size: 16px;
+  color: #8f958f;
+  margin-bottom: 40px;
+}
+
+/* MAGIC LINK */
+.magic-card {
+  background: #fbfcfa;
+  border: 1px solid #e5e9e2;
+  border-radius: 24px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.magic-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.mail-icon {
+  width: 44px;
+  height: 44px;
+  background: white;
+  border: 1px solid #e5e9e2;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a6bb97;
+}
+
+.magic-header h4 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #404840;
+  margin-bottom: 4px;
+}
+
+.magic-header p {
+  font-size: 13px;
+  color: #8f958f;
+  line-height: 1.4;
+}
+
+.magic-btn {
+  width: 100%;
+  height: 52px;
+  background: #e5e9e2;
+  color: #404840;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: none;
+  transition: .2s;
+  margin-top: 12px;
+}
+
+.magic-btn:hover {
+  background: #a6bb97;
+  color: white;
+}
+
+/* DIVIDER */
+.divider {
+  position: relative;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 1px;
+  background: #e5e9e2;
+  z-index: 1;
+}
+
+.divider span {
+  position: relative;
+  z-index: 2;
+  background: #fbfcfa;
+  padding: 0 18px;
+  color: #9aa09a;
+  font-size: 14px;
+}
+
+/* GOOGLE */
+.google-btn {
+  width: 100%;
+  height: 72px;
+  border-radius: 22px;
+  border: 1px solid #e5e9e2;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  font-size: 20px;
+  font-weight: 500;
+  color: #404840;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.google-btn:hover {
+  border-color: #a6bb97;
+  transform: translateY(-1px);
+}
+
+.google-btn img {
+  width: 28px;
+  height: 28px;
+}
+
+/* REQUEST */
+.request-account {
+  text-align: center;
+  margin-top: 36px;
+  color: #8f958f;
+  font-size: 14px;
+}
+
+.request-account a {
+  color: #a6bb97;
+  font-weight: 700;
+  text-decoration: none;
+  margin-left: 4px;
+  transition: .2s;
+}
+
+.request-account a:hover {
+  color: #5a6b52;
+}
+
+/* =========================
+   FORMULARIO DE REGISTRO
+========================= */
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-group label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #a6bb97;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-left: 10px;
+}
+
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ⚠️ ENCAPSULACIÓN CLAVE AQUÍ ⚠️ */
+/* Solo modificamos los inputs si están dentro de .login-page */
+.login-page input[type="text"],
+.login-page input[type="email"],
+.login-page input[type="number"],
+.login-page select {
+  width: 100%;
+  height: 58px;
+  border-radius: 20px;
+  border: 1px solid #e5e9e2;
+  padding: 0 22px;
+  font-size: 16px;
+  color: #404840;
+  background: #fbfcfa;
+  transition: all .2s ease;
+  outline: none;
+}
+
+.login-page input:focus,
+.login-page select:focus {
+  border-color: #a6bb97;
+  background: white;
+  box-shadow: 0 4px 12px rgba(166, 187, 151, 0.1);
+}
+
+.submit-btn {
+  width: 100%;
+  height: 62px;
+  background: #2a2e2a;
+  color: white;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  border: none;
+  transition: .3s;
+  margin-top: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.submit-btn:hover {
+  background: #1a1e1a;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+}
+
+.back-link {
+  display: block;
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #9aa09a;
+  text-decoration: none;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.back-link:hover {
+  color: #404840;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease forwards;
+}
