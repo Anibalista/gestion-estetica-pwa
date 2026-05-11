@@ -8,7 +8,7 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
   const [busqueda, setBusqueda] = useState('')
   const [confirmarSuperposicion, setConfirmarSuperposicion] = useState(false)
 
-  // NUEVO: buscador clientes
+  // Buscador clientes
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [mostrarClientes, setMostrarClientes] = useState(false)
 
