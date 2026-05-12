@@ -2,6 +2,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../supabaseClient'
 
+const MEDIOS_PAGO = [
+  'Efectivo',
+  'Transferencia',
+  'Tarjeta'
+]
+
 export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState(null)
@@ -25,6 +31,7 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     observaciones: '',
     estado: 'Pendiente',
     monto_cobrado: '',
+    medio_pago: 'Efectivo',
     duracion_manual: ''
   })
 
@@ -103,6 +110,7 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         fecha: fechaBD,
         hora: horaBD,
         monto_cobrado: turnoInicial.monto_cobrado ?? '',
+        medio_pago: turnoInicial.medio_pago || 'Efectivo',
         duracion_manual: turnoInicial.duracion_total || ''
       })
 
@@ -127,7 +135,7 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     }
   }, [session.user.id, turnoInicial])
 
-  // NUEVO: autocompletar texto del cliente seleccionado
+  // Autocompletar texto del cliente seleccionado
   useEffect(() => {
     if (formData.cliente_id && clientes.length > 0) {
       const cliente = clientes.find(c => c.id === formData.cliente_id)
@@ -188,7 +196,7 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
   const totales = useMemo(() => {
     return {
       monto: carrito.reduce(
-        (acc, i) => acc + Number(i.precio_actual),
+        (acc, i) => acc + Number(i.precio_actual || 0),
         0
       ),
       duracion_servicios: carrito.reduce(
@@ -198,7 +206,7 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     }
   }, [carrito])
 
-  // NUEVO: filtro clientes
+  // Filtro clientes
   const clientesFiltrados = clientes.filter(c =>
     `${c.nombre} ${c.telefono || ''}`
       .toLowerCase()
@@ -217,21 +225,31 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         duracion_manual: totales.duracion_servicios
       }))
     }
-  }, [totales.duracion_servicios, turnoInicial])
+  }, [totales.duracion_servicios, turnoInicial, formData.duracion_manual])
 
-  // Autocompletar cobro
+  // Autocompletar cobro y medio de pago cuando pasa a Cobrada
   useEffect(() => {
-    if (
-      formData.estado === 'Cobrada' &&
-      !formData.monto_cobrado &&
-      totales.monto > 0
-    ) {
+    if (formData.estado === 'Cobrada') {
       setFormData(prev => ({
         ...prev,
-        monto_cobrado: totales.monto
+        monto_cobrado:
+          prev.monto_cobrado || totales.monto || '',
+        medio_pago:
+          prev.medio_pago || 'Efectivo'
       }))
     }
   }, [formData.estado, totales.monto])
+
+  // Si deja de estar cobrada, limpiamos el medio de pago.
+  // El monto cobrado no se borra por seguridad, por si el usuario vuelve atrás sin querer.
+  useEffect(() => {
+    if (formData.estado !== 'Cobrada' && formData.medio_pago) {
+      setFormData(prev => ({
+        ...prev,
+        medio_pago: ''
+      }))
+    }
+  }, [formData.estado])
 
   // 3. MANEJO DEL CARRITO
   const toggleItem = item => {
@@ -271,6 +289,14 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
       setFeedback({
         tipo: 'error',
         mensaje: 'Debes seleccionar al menos un servicio o combo.'
+      })
+      return
+    }
+
+    if (formData.estado === 'Cobrada' && !formData.medio_pago) {
+      setFeedback({
+        tipo: 'error',
+        mensaje: 'Debes seleccionar un medio de pago para cobrar la sesión.'
       })
       return
     }
@@ -326,7 +352,13 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         monto_total: totales.monto,
         duracion_total: duracionActual,
         monto_cobrado:
-          parseFloat(formData.monto_cobrado) || 0,
+          formData.estado === 'Cobrada'
+            ? parseFloat(formData.monto_cobrado) || 0
+            : 0,
+        medio_pago:
+          formData.estado === 'Cobrada'
+            ? formData.medio_pago
+            : null,
         observaciones: formData.observaciones,
         estado: formData.estado,
         a_domicilio: aDomicilio
@@ -335,15 +367,19 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
       let sesionId = formData.id
 
       if (sesionId) {
-        await supabase
+        const { error } = await supabase
           .from('sesiones')
           .update(datosSesion)
           .eq('id', sesionId)
 
-        await supabase
+        if (error) throw error
+
+        const { error: errorDeleteDetalles } = await supabase
           .from('sesion_detalles')
           .delete()
           .eq('sesion_id', sesionId)
+
+        if (errorDeleteDetalles) throw errorDeleteDetalles
       } else {
         const { data, error } = await supabase
           .from('sesiones')
@@ -360,16 +396,19 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         sesion_id: sesionId,
         servicio_id:
           i.tipoItem === 'servicio' ? i.id : null,
-        combo_id: i.tipoItem === 'combo' ? i.id : null,
+        combo_id:
+          i.tipoItem === 'combo' ? i.id : null,
         precio_cobrado: i.precio_actual
       }))
 
-      await supabase
+      const { error: errorInsertDetalles } = await supabase
         .from('sesion_detalles')
         .insert(lineas)
 
+      if (errorInsertDetalles) throw errorInsertDetalles
+
       if (aDomicilio && formData.cliente_id) {
-        await supabase
+        const { error: errorDireccion } = await supabase
           .from('direcciones')
           .upsert(
             {
@@ -381,6 +420,8 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
             },
             { onConflict: 'cliente_id' }
           )
+
+        if (errorDireccion) throw errorDireccion
       }
 
       onGuardar()
@@ -441,7 +482,7 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         )}
 
         <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100 space-y-4">
-          {/* NUEVO SELECT CON BUSCADOR */}
+          {/* SELECT CON BUSCADOR */}
           <div>
             <label className="block text-xs font-bold text-stone-400 uppercase mb-2">
               Paciente *
@@ -576,52 +617,182 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 ${formData.estado === 'Cobrada' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
             <div>
-              <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Estado</label>
-              <select value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value})} className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-bold">
+              <label className="block text-xs font-bold text-stone-400 uppercase mb-2">
+                Estado
+              </label>
+
+              <select
+                value={formData.estado}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    estado: e.target.value
+                  })
+                }
+                className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-bold"
+              >
                 <option value="Pendiente">⏳ Pendiente</option>
                 <option value="Cobrada">✅ Cobrada</option>
                 <option value="Ausente">❌ Ausente</option>
                 <option value="Anulada">🚫 Anulada</option>
               </select>
             </div>
+
             <div className={`${formData.estado === 'Cobrada' ? 'opacity-100' : 'opacity-50'}`}>
-              <label className="block text-xs font-bold text-teal-600 uppercase mb-2">Cobro Real ($)</label>
-              <input type="number" step="0.01" value={formData.monto_cobrado} onChange={e => setFormData({...formData, monto_cobrado: e.target.value})} placeholder={totales.monto.toString()} className="w-full px-4 py-3 border border-teal-200 bg-teal-50 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-black text-teal-800" />
+              <label className="block text-xs font-bold text-teal-600 uppercase mb-2">
+                Cobro Real ($)
+              </label>
+
+              <input
+                type="number"
+                step="0.01"
+                value={formData.monto_cobrado}
+                onChange={e =>
+                  setFormData({
+                    ...formData,
+                    monto_cobrado: e.target.value
+                  })
+                }
+                placeholder={totales.monto.toString()}
+                disabled={formData.estado !== 'Cobrada'}
+                className={`w-full px-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-black ${
+                  formData.estado === 'Cobrada'
+                    ? 'border-teal-200 bg-teal-50 text-teal-800'
+                    : 'border-stone-200 bg-stone-100 text-stone-400 cursor-not-allowed'
+                }`}
+              />
             </div>
+
+            {formData.estado === 'Cobrada' && (
+              <div>
+                <label className="block text-xs font-bold text-teal-600 uppercase mb-2">
+                  Medio de pago *
+                </label>
+
+                <select
+                  required
+                  value={formData.medio_pago || ''}
+                  onChange={e =>
+                    setFormData({
+                      ...formData,
+                      medio_pago: e.target.value
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-teal-200 bg-teal-50 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-bold text-teal-800"
+                >
+                  <option value="">Seleccionar...</option>
+
+                  {MEDIOS_PAGO.map(medio => (
+                    <option key={medio} value={medio}>
+                      {medio}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-          
+
           <div>
-            <label className="block text-xs font-bold text-stone-400 uppercase mb-2">Notas de la sesión</label>
-            <textarea rows="2" value={formData.observaciones} onChange={e => setFormData({...formData, observaciones: e.target.value})} placeholder="Ej: Poner foco en cervicales..." className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"></textarea>
+            <label className="block text-xs font-bold text-stone-400 uppercase mb-2">
+              Notas de la sesión
+            </label>
+
+            <textarea
+              rows="2"
+              value={formData.observaciones}
+              onChange={e =>
+                setFormData({
+                  ...formData,
+                  observaciones: e.target.value
+                })
+              }
+              placeholder="Ej: Poner foco en cervicales..."
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500"
+            />
           </div>
         </div>
 
         {/* DOMICILIO */}
         <div className="border border-stone-200 rounded-2xl overflow-hidden mt-6">
-          <button type="button" onClick={() => setADomicilio(!aDomicilio)} className={`w-full px-5 py-4 flex items-center justify-between transition-colors focus:outline-none ${aDomicilio ? 'bg-teal-50/50 border-b border-stone-200' : 'bg-stone-50 hover:bg-stone-100'}`}>
+          <button
+            type="button"
+            onClick={() => setADomicilio(!aDomicilio)}
+            className={`w-full px-5 py-4 flex items-center justify-between transition-colors focus:outline-none ${
+              aDomicilio
+                ? 'bg-teal-50/50 border-b border-stone-200'
+                : 'bg-stone-50 hover:bg-stone-100'
+            }`}
+          >
             <div className="flex items-center gap-3">
-              <span className={`text-xl ${aDomicilio ? 'text-teal-600' : 'text-stone-400 grayscale'}`}>🏠</span>
+              <span className={`text-xl ${aDomicilio ? 'text-teal-600' : 'text-stone-400 grayscale'}`}>
+                🏠
+              </span>
+
               <div className="text-left">
-                <p className={`font-bold ${aDomicilio ? 'text-teal-800' : 'text-stone-600'}`}>Atención a domicilio</p>
-                <p className="text-xs text-stone-500 font-normal">Agendar turno en la dirección del paciente</p>
+                <p className={`font-bold ${aDomicilio ? 'text-teal-800' : 'text-stone-600'}`}>
+                  Atención a domicilio
+                </p>
+
+                <p className="text-xs text-stone-500 font-normal">
+                  Agendar turno en la dirección del paciente
+                </p>
               </div>
             </div>
-            <div className={`w-12 h-6 rounded-full flex items-center transition-colors px-1 ${aDomicilio ? 'bg-teal-500' : 'bg-stone-300'}`}>
-              <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${aDomicilio ? 'translate-x-6' : 'translate-x-0'}`}></div>
+
+            <div className={`w-12 h-6 rounded-full flex items-center transition-colors px-1 ${
+              aDomicilio ? 'bg-teal-500' : 'bg-stone-300'
+            }`}>
+              <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                aDomicilio ? 'translate-x-6' : 'translate-x-0'
+              }`} />
             </div>
           </button>
+
           {aDomicilio && (
             <div className="p-5 bg-white grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">Calle</label>
-                <input type="text" name="calle" value={direccion.calle} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500" />
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">
+                  Calle
+                </label>
+
+                <input
+                  type="text"
+                  name="calle"
+                  value={direccion.calle}
+                  onChange={handleDireccionChange}
+                  className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500"
+                />
               </div>
-              <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Nro</label>
-              <input type="text" name="numero" value={direccion.numero} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500" /></div>
-              <div><label className="block text-xs font-bold text-stone-500 uppercase mb-1">Barrio</label>
-              <input type="text" name="barrio" value={direccion.barrio} onChange={handleDireccionChange} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500" /></div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">
+                  Nro
+                </label>
+
+                <input
+                  type="text"
+                  name="numero"
+                  value={direccion.numero}
+                  onChange={handleDireccionChange}
+                  className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">
+                  Barrio
+                </label>
+
+                <input
+                  type="text"
+                  name="barrio"
+                  value={direccion.barrio}
+                  onChange={handleDireccionChange}
+                  className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none focus:border-teal-500"
+                />
+              </div>
             </div>
           )}
         </div>
@@ -630,23 +801,57 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
       {/* COLUMNA DERECHA */}
       <div className="flex flex-col h-[600px]">
         <div className="mb-4">
-          <h3 className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-3">Servicios a Realizar</h3>
-          <input type="text" placeholder="Filtrar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none text-sm bg-stone-50" />
+          <h3 className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-3">
+            Servicios a Realizar
+          </h3>
+
+          <input
+            type="text"
+            placeholder="Filtrar..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            className="w-full px-4 py-2 border border-stone-200 rounded-xl outline-none text-sm bg-stone-50"
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto border border-stone-100 rounded-2xl p-2 space-y-2 bg-stone-50/30">
           {catalogoOrdenado.map(item => {
-            const isSelected = carrito.some(i => i.idUnico === item.idUnico);
+            const isSelected = carrito.some(i => i.idUnico === item.idUnico)
+
             return (
-              <div key={item.idUnico} className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isSelected ? 'bg-white border-teal-500 shadow-md ring-1 ring-teal-500' : 'bg-white border-stone-100'}`} onClick={() => toggleItem(item)}>
+              <div
+                key={item.idUnico}
+                className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-white border-teal-500 shadow-md ring-1 ring-teal-500'
+                    : 'bg-white border-stone-100'
+                }`}
+                onClick={() => toggleItem(item)}
+              >
                 <div className="flex items-center gap-3">
-                  <input type="checkbox" readOnly checked={isSelected} className="w-5 h-5 text-teal-600 rounded" />
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={isSelected}
+                    className="w-5 h-5 text-teal-600 rounded"
+                  />
+
                   <div>
-                    <p className={`font-bold text-sm ${isSelected ? 'text-teal-700' : 'text-stone-600'}`}>{item.nombre}</p>
-                    <p className="text-[10px] text-stone-400 uppercase tracking-widest">{item.duracion_minutos} min</p>
+                    <p className={`font-bold text-sm ${
+                      isSelected ? 'text-teal-700' : 'text-stone-600'
+                    }`}>
+                      {item.nombre}
+                    </p>
+
+                    <p className="text-[10px] text-stone-400 uppercase tracking-widest">
+                      {item.duracion_minutos} min
+                    </p>
                   </div>
                 </div>
-                <div className="font-bold text-stone-800">${item.precio_actual}</div>
+
+                <div className="font-bold text-stone-800">
+                  ${item.precio_actual}
+                </div>
               </div>
             )
           })}
@@ -655,23 +860,51 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         <div className="pt-4 border-t border-stone-200 mt-4">
           <div className="flex justify-between items-center mb-4 px-2">
             <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Duración Estimada</p>
-              <p className="text-lg font-bold text-stone-600">{formData.duracion_manual || 0} min</p>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                Duración Estimada
+              </p>
+
+              <p className="text-lg font-bold text-stone-600">
+                {formData.duracion_manual || 0} min
+              </p>
             </div>
+
             <div className="text-right">
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">A Cobrar (Lista)</p>
-              <p className="text-3xl font-black text-stone-800">${totales.monto.toFixed(2)}</p>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                A Cobrar (Lista)
+              </p>
+
+              <p className="text-3xl font-black text-stone-800">
+                ${totales.monto.toFixed(2)}
+              </p>
             </div>
           </div>
-          
+
           <div className="flex gap-3">
-            <button type="button" onClick={onCancelar} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-100 rounded-xl transition-colors">Cancelar</button>
-            <button 
-                type="submit" 
-                disabled={isSubmitting} 
-                className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-md transition-all ${confirmarSuperposicion ? 'bg-amber-600 hover:bg-amber-700' : 'bg-teal-600 hover:bg-teal-700'}`}
+            <button
+              type="button"
+              onClick={onCancelar}
+              className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-100 rounded-xl transition-colors"
             >
-              {isSubmitting ? 'Guardando...' : (confirmarSuperposicion ? 'Confirmar de todos modos' : (formData.id ? 'Actualizar Turno' : 'Agendar Turno'))}
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-md transition-all ${
+                confirmarSuperposicion
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-teal-600 hover:bg-teal-700'
+              }`}
+            >
+              {isSubmitting
+                ? 'Guardando...'
+                : confirmarSuperposicion
+                  ? 'Confirmar de todos modos'
+                  : formData.id
+                    ? 'Actualizar Turno'
+                    : 'Agendar Turno'}
             </button>
           </div>
         </div>
