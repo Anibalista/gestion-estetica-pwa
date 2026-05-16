@@ -1,47 +1,151 @@
 // src/components/Sidebar.jsx
+import { useState } from 'react'
 
-// 1. Recibimos setIsMenuOpen en los props
 export function Sidebar({ isMenuOpen, setVistaActiva, setIsMenuOpen }) {
-  
-  // 2. Creamos la función que hace ambas tareas
+  const [seccionesAbiertas, setSeccionesAbiertas] = useState({
+    turnos: false,
+    productos: false,
+    clientes: false,
+    servicios: false,
+    finanzas: false
+  })
+
   const manejarSeleccion = (vista) => {
-    setVistaActiva(vista);
-    // Para que no moleste en monitores grandes, cerramos el menú
-    // solo si la pantalla es chica (típico de celulares/tablets)
-    // Si prefieres que se cierre SIEMPRE sin importar la pantalla, deja solo: setIsMenuOpen(false);
-    if (window.innerWidth < 1024 && setIsMenuOpen) {
-      setIsMenuOpen(false);
+    setVistaActiva(vista)
+
+    // Al hacer click en cualquier opción, el menú se cierra
+    if (setIsMenuOpen) {
+      setIsMenuOpen(false)
     }
   }
 
+  const alternarSeccion = (seccion) => {
+    setSeccionesAbiertas((prev) => ({
+      ...prev,
+      [seccion]: !prev[seccion]
+    }))
+  }
+
   return (
-    <aside className={`${isMenuOpen ? 'w-64' : 'w-0'} bg-white border-r border-stone-200 overflow-y-auto transition-all duration-300 ease-in-out flex flex-col shrink-0`}>
+    <aside 
+      className={`${isMenuOpen ? 'w-64' : 'w-0'} bg-white border-r border-stone-200 overflow-y-auto transition-all duration-300 ease-in-out flex flex-col shrink-0`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="p-4 w-64">
         
-        <MenuSection title="Turnos / Citas">
-          {/* 3. Reemplazamos setVistaActiva por nuestra nueva función */}
-          <MenuItem label="Nuevo turno" onClick={() => manejarSeleccion('nuevo-turno')} />
-          <MenuItem label="Ver turnos" onClick={() => manejarSeleccion('agenda')} />
+        <MenuSection 
+          title="Turnos / Citas"
+          isOpen={seccionesAbiertas.turnos}
+          onToggle={() => alternarSeccion('turnos')}
+        >
+          <MenuItem 
+            label="Registrar Atención" 
+            onClick={() => manejarSeleccion('registrar-atencion')} 
+          />
+          <MenuItem 
+            label="Nuevo Turno" 
+            onClick={() => manejarSeleccion('nuevo-turno')} 
+          />
+          <MenuItem 
+            label="Ver Turnos" 
+            onClick={() => manejarSeleccion('agenda')} 
+          />
+          <MenuItem 
+            label="Informes - Productividad" 
+            onClick={() => manejarSeleccion('informes-productividad')} 
+          />
         </MenuSection>
 
-        <MenuSection title="Servicios">
-          <MenuItem label="Nuevo servicio" onClick={() => manejarSeleccion('nuevo-servicio')} />
-          <MenuItem label="Combos" onClick={() => manejarSeleccion('combos')} />
-          <MenuItem label="Insumos - Costos" onClick={() => manejarSeleccion('insumos')} />
-          <MenuItem label="Ver servicios" onClick={() => manejarSeleccion('ver-servicios')} />
+        <MenuSection 
+          title="Productos"
+          isOpen={seccionesAbiertas.productos}
+          onToggle={() => alternarSeccion('productos')}
+        >
+          <MenuItem 
+            label="Venta de Productos" 
+            onClick={() => manejarSeleccion('ventas')} 
+          />
+          <MenuItem 
+            label="Registrar Producto - Insumo" 
+            onClick={() => manejarSeleccion('registrar-producto')} 
+          />
+          <MenuItem 
+            label="Administrar Stock" 
+            onClick={() => manejarSeleccion('stock')} 
+          />
+          <MenuItem 
+            label="Insumos - Costos" 
+            onClick={() => manejarSeleccion('insumos-costos')} 
+          />
+          <MenuItem 
+            label="Reportes - Alertas" 
+            onClick={() => manejarSeleccion('reportes-alertas')} 
+          />
         </MenuSection>
 
-        <MenuSection title="Productos">
-          <MenuItem label="Ventas" onClick={() => manejarSeleccion('ventas')} />
-          <MenuItem label="Registrar" onClick={() => manejarSeleccion('registrar-producto')} />
-          <MenuItem label="Stock" onClick={() => manejarSeleccion('stock')} />
-          <MenuItem label="Administrar" onClick={() => manejarSeleccion('admin-productos')} />
-          <MenuItem label="Reportes" onClick={() => manejarSeleccion('reportes-productos')} />
+        <MenuSection 
+          title="Clientes"
+          isOpen={seccionesAbiertas.clientes}
+          onToggle={() => alternarSeccion('clientes')}
+        >
+          <MenuItem 
+            label="Nuevo Cliente" 
+            onClick={() => manejarSeleccion('nuevo-cliente')} 
+          />
+          <MenuItem 
+            label="Ver Clientes" 
+            onClick={() => manejarSeleccion('clientes')} 
+          />
+          <MenuItem 
+            label="Informes - Ideas" 
+            onClick={() => manejarSeleccion('informes-ideas')} 
+          />
         </MenuSection>
 
-        <MenuSection title="Clientes">
-          <MenuItem label="Nuevo cliente" onClick={() => manejarSeleccion('nuevo-cliente')} />
-          <MenuItem label="Ver clientes" onClick={() => manejarSeleccion('clientes')} />
+        <MenuSection 
+          title="Servicios"
+          isOpen={seccionesAbiertas.servicios}
+          onToggle={() => alternarSeccion('servicios')}
+        >
+          <MenuItem 
+            label="Registrar Servicio" 
+            onClick={() => manejarSeleccion('nuevo-servicio')} 
+          />
+          <MenuItem 
+            label="Ver Servicios" 
+            onClick={() => manejarSeleccion('ver-servicios')} 
+          />
+          <MenuItem 
+            label="Combos" 
+            onClick={() => manejarSeleccion('combos')} 
+          />
+          <MenuItem 
+            label="Informes - Administración" 
+            onClick={() => manejarSeleccion('informes-administracion')} 
+          />
+        </MenuSection>
+
+        <MenuSection 
+          title="Finanzas"
+          isOpen={seccionesAbiertas.finanzas}
+          onToggle={() => alternarSeccion('finanzas')}
+        >
+          <MenuItem 
+            label="Cierre de Caja" 
+            onClick={() => manejarSeleccion('cierre-caja')} 
+          />
+          <MenuItem 
+            label="Reportes Comparativos" 
+            onClick={() => manejarSeleccion('reportes-comparativos')} 
+          />
+          <MenuItem 
+            label="Ver Transacciones" 
+            onClick={() => manejarSeleccion('ver-transacciones')} 
+          />
+          <MenuItem 
+            label="Informes Estadísticos" 
+            onClick={() => manejarSeleccion('informes-estadisticos')} 
+          />
         </MenuSection>
 
       </div>
@@ -49,11 +153,26 @@ export function Sidebar({ isMenuOpen, setVistaActiva, setIsMenuOpen }) {
   )
 }
 
-function MenuSection({ title, children }) {
+function MenuSection({ title, isOpen, onToggle, children }) {
   return (
-    <div className="mb-6">
-      <h3 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2 px-3">{title}</h3>
-      <ul className="space-y-1">{children}</ul>
+    <div className="mb-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-stone-500 uppercase tracking-wider hover:bg-stone-100 hover:text-teal-700 transition-colors"
+      >
+        <span>{title}</span>
+
+        <span className={`text-stone-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
+          ▼
+        </span>
+      </button>
+
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
+        <ul className="space-y-1">
+          {children}
+        </ul>
+      </div>
     </div>
   )
 }
@@ -62,6 +181,7 @@ function MenuItem({ label, onClick }) {
   return (
     <li>
       <button 
+        type="button"
         onClick={onClick}
         className="w-full text-left block px-3 py-2 rounded-md text-sm font-medium text-stone-600 hover:bg-teal-50 hover:text-teal-700 transition-colors"
       >
