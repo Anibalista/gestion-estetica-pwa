@@ -11,6 +11,7 @@ import { Turnos } from './Turnos'
 import { Ventas } from './Ventas'
 import { Insumos } from './productos/Insumos'
 import { ReportesAlertas } from './productos/ReportesAlertas'
+import { InformesProductividad } from './turnos/InformesProductividad'
 
 export function Dashboard({ session }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -31,11 +32,6 @@ export function Dashboard({ session }) {
       titulo: 'Registrar Atención',
       descripcion: 'Acá vamos a registrar una atención realizada, asociarla a un cliente, turno, servicio, profesional y monto cobrado.',
       icono: '📝'
-    },
-    'informes-productividad': {
-      titulo: 'Informes - Productividad',
-      descripcion: 'Acá vamos a mostrar métricas de turnos, atenciones, profesionales, servicios más realizados y productividad general.',
-      icono: '📊'
     },
     'informes-ideas': {
       titulo: 'Informes - Ideas',
@@ -72,6 +68,7 @@ export function Dashboard({ session }) {
   const vistaConstruccion = vistasEnConstruccion[vistaActiva]
   const mostrarInsumos = vistaActiva === 'insumos' || vistaActiva === 'insumos-costos'
   const mostrarReportesAlertas = vistaActiva === 'reportes-alertas'
+  const mostrarInformesProductividad = vistaActiva === 'informes-productividad'
 
   return (
     <div 
@@ -157,6 +154,10 @@ export function Dashboard({ session }) {
             <ReportesAlertas session={session} />
           )}
 
+          {mostrarInformesProductividad && (
+            <InformesProductividad session={session} />
+          )}
+
           {vistaActiva === 'personalizar' && (
             <VistaPerfilEnConstruccion
               icono="🎨"
@@ -181,7 +182,7 @@ export function Dashboard({ session }) {
             />
           )}
 
-          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && (
+          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && !mostrarInformesProductividad && (
             <VistaEnConstruccion
               icono={vistaConstruccion.icono}
               titulo={vistaConstruccion.titulo}
