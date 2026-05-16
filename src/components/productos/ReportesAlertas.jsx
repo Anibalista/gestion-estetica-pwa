@@ -3,6 +3,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import {
+  AlertTriangle,
+  CalendarClock,
+  DollarSign,
+  FileText,
+  Hourglass,
+  Info,
+  PackageSearch,
+  Percent,
+  RefreshCw,
+  TrendingUp,
+  Warehouse,
+  Boxes
+} from 'lucide-react'
 
 const PERIODOS_ROTACION = [
   { value: '30', label: '30 días' },
@@ -11,11 +25,19 @@ const PERIODOS_ROTACION = [
   { value: 'todo', label: 'Todo' }
 ]
 
+const DIAS_SIN_MOVIMIENTO = [
+  { value: 30, label: '+30 días' },
+  { value: 60, label: '+60 días' },
+  { value: 90, label: '+90 días' },
+  { value: 180, label: '+180 días' }
+]
+
 export function ReportesAlertas({ session }) {
   const [loading, setLoading] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
   const [periodoRotacion, setPeriodoRotacion] = useState('90')
   const [tipoMargen, setTipoMargen] = useState('porcentaje')
+  const [diasSinMovimiento, setDiasSinMovimiento] = useState(90)
 
   const [productos, setProductos] = useState([])
   const [ventas, setVentas] = useState([])
@@ -145,12 +167,22 @@ export function ReportesAlertas({ session }) {
       costosServicio,
       comboServicios,
       periodoRotacion,
-      tipoMargen
+      tipoMargen,
+      diasSinMovimiento
     })
-  }, [productos, ventas, sesiones, costosServicio, comboServicios, periodoRotacion, tipoMargen])
+  }, [
+    productos,
+    ventas,
+    sesiones,
+    costosServicio,
+    comboServicios,
+    periodoRotacion,
+    tipoMargen,
+    diasSinMovimiento
+  ])
 
   const generarPDF = (tipo) => {
-    const config = obtenerConfigPDF(tipo, datosProcesados)
+    const config = obtenerConfigPDF(tipo, datosProcesados, diasSinMovimiento)
 
     if (!config || config.filas.length === 0) return
 
@@ -182,9 +214,7 @@ export function ReportesAlertas({ session }) {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center text-stone-400">
-        <span className="material-symbols-outlined animate-spin text-4xl">
-          refresh
-        </span>
+        <RefreshCw className="w-10 h-10 animate-spin" />
       </div>
     )
   }
@@ -192,9 +222,7 @@ export function ReportesAlertas({ session }) {
   if (errorCarga) {
     return (
       <div className="max-w-3xl mx-auto p-8 text-center bg-white rounded-2xl shadow-sm border border-red-100 mt-10">
-        <span className="text-5xl mb-4 block">
-          ⚠️
-        </span>
+        <AlertTriangle className="w-14 h-14 mx-auto text-red-500 mb-4" />
 
         <h2 className="text-2xl font-light text-stone-800 mb-2">
           No se pudieron cargar los reportes
@@ -217,14 +245,9 @@ export function ReportesAlertas({ session }) {
 
   return (
     <div className="max-w-7xl mx-auto h-full flex flex-col gap-6 overflow-y-auto pb-10">
-      <HeaderReportes
-        periodoRotacion={periodoRotacion}
-        setPeriodoRotacion={setPeriodoRotacion}
-        tipoMargen={tipoMargen}
-        setTipoMargen={setTipoMargen}
-      />
+      <HeaderReportes />
 
-      <ResumenGeneral datos={datosProcesados} />
+      <ResumenGeneral datos={datosProcesados} diasSinMovimiento={diasSinMovimiento} />
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <TablaReposicion
@@ -239,6 +262,8 @@ export function ReportesAlertas({ session }) {
 
         <TablaSinMovimientos
           productos={datosProcesados.productosSinMovimientos}
+          diasSinMovimiento={diasSinMovimiento}
+          setDiasSinMovimiento={setDiasSinMovimiento}
           onExportar={() => generarPDF('sin-movimientos')}
         />
       </section>
@@ -252,6 +277,8 @@ export function ReportesAlertas({ session }) {
           topItems={datosProcesados.topVentas}
           flopItems={datosProcesados.flopVentas}
           unidad="ventas"
+          periodoRotacion={periodoRotacion}
+          setPeriodoRotacion={setPeriodoRotacion}
         />
 
         <TopFlopCard
@@ -262,6 +289,8 @@ export function ReportesAlertas({ session }) {
           topItems={datosProcesados.topInsumos}
           flopItems={datosProcesados.flopInsumos}
           unidad="usos"
+          periodoRotacion={periodoRotacion}
+          setPeriodoRotacion={setPeriodoRotacion}
         />
       </section>
 
@@ -269,128 +298,70 @@ export function ReportesAlertas({ session }) {
         <MargenCard
           productos={datosProcesados.productosMayorMargen}
           tipoMargen={tipoMargen}
+          setTipoMargen={setTipoMargen}
         />
 
-        <AyudaCard />
+        <AyudaCard diasSinMovimiento={diasSinMovimiento} />
       </section>
     </div>
   )
 }
 
-function HeaderReportes({ periodoRotacion, setPeriodoRotacion, tipoMargen, setTipoMargen }) {
+function HeaderReportes() {
   return (
-    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 px-2">
-      <div>
-        <h2 className="text-2xl font-light text-stone-800">
-          Reportes - Alertas
-        </h2>
-        <p className="text-sm text-stone-500 font-light italic">
-          Reposición, rotación, vencimientos, stock quieto y margen de productos.
-        </p>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="bg-white border border-stone-200 rounded-2xl p-2 shadow-sm">
-          <p className="text-[10px] uppercase tracking-widest font-black text-stone-400 mb-1 px-2">
-            Rotación
-          </p>
-
-          <div className="flex flex-wrap gap-1">
-            {PERIODOS_ROTACION.map((periodo) => (
-              <button
-                key={periodo.value}
-                type="button"
-                onClick={() => setPeriodoRotacion(periodo.value)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                  periodoRotacion === periodo.value
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-                }`}
-              >
-                {periodo.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border border-stone-200 rounded-2xl p-2 shadow-sm">
-          <p className="text-[10px] uppercase tracking-widest font-black text-stone-400 mb-1 px-2">
-            Margen
-          </p>
-
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={() => setTipoMargen('porcentaje')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                tipoMargen === 'porcentaje'
-                  ? 'bg-teal-600 text-white'
-                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-              }`}
-            >
-              %
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTipoMargen('plata')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                tipoMargen === 'plata'
-                  ? 'bg-teal-600 text-white'
-                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-              }`}
-            >
-              $
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="px-2">
+      <h2 className="text-2xl font-light text-stone-800">
+        Reportes - Alertas
+      </h2>
+      <p className="text-sm text-stone-500 font-light italic">
+        Reposición, rotación, vencimientos, stock quieto y margen de productos.
+      </p>
     </div>
   )
 }
 
-function ResumenGeneral({ datos }) {
+function ResumenGeneral({ datos, diasSinMovimiento }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
       <ResumenCard
         titulo="A reponer"
         valor={datos.productosAReponer.length}
         descripcion="Unidades enteras bajo mínimo"
-        icono="production_quantity_limits"
+        Icon={PackageSearch}
       />
 
       <ResumenCard
         titulo="Vencimientos"
         valor={datos.productosPorVencer.length}
         descripcion="Vencidos o próximos 90 días"
-        icono="event_busy"
+        Icon={CalendarClock}
       />
 
       <ResumenCard
         titulo="Sin movimiento"
         valor={datos.productosSinMovimientos.length}
-        descripcion="Stock quieto +90 días"
-        icono="hourglass_empty"
+        descripcion={`Stock quieto +${diasSinMovimiento} días`}
+        Icon={Hourglass}
       />
 
       <ResumenCard
         titulo="Productos activos"
         valor={datos.totalProductos}
         descripcion="Con ficha activa"
-        icono="inventory_2"
+        Icon={Boxes}
       />
 
       <ResumenCard
         titulo="Con stock"
         valor={datos.totalConStock}
         descripcion="Suelto o unidades"
-        icono="warehouse"
+        Icon={Warehouse}
       />
     </div>
   )
 }
 
-function ResumenCard({ titulo, valor, descripcion, icono }) {
+function ResumenCard({ titulo, valor, descripcion, Icon }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5">
       <div className="flex items-start justify-between gap-3">
@@ -406,9 +377,9 @@ function ResumenCard({ titulo, valor, descripcion, icono }) {
           </p>
         </div>
 
-        <span className="material-symbols-outlined text-teal-600 bg-teal-50 rounded-xl p-2">
-          {icono}
-        </span>
+        <div className="text-teal-600 bg-teal-50 rounded-xl p-2">
+          <Icon className="w-6 h-6" />
+        </div>
       </div>
     </div>
   )
@@ -468,14 +439,37 @@ function TablaVencimientos({ productos, onExportar }) {
   )
 }
 
-function TablaSinMovimientos({ productos, onExportar }) {
+function TablaSinMovimientos({
+  productos,
+  diasSinMovimiento,
+  setDiasSinMovimiento,
+  onExportar
+}) {
   return (
     <PanelTabla
       titulo="Stock sin movimientos"
-      descripcion="Productos con stock actual sin ventas ni uso como insumo por más de 90 días."
+      descripcion={`Productos con stock actual sin ventas ni uso como insumo por más de ${diasSinMovimiento} días.`}
       exportLabel="PDF quietos"
       onExportar={onExportar}
       disabledExport={productos.length === 0}
+      extraControls={
+        <div className="flex flex-wrap gap-1 mt-3">
+          {DIAS_SIN_MOVIMIENTO.map((opcion) => (
+            <button
+              key={opcion.value}
+              type="button"
+              onClick={() => setDiasSinMovimiento(opcion.value)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                diasSinMovimiento === opcion.value
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+              }`}
+            >
+              {opcion.label}
+            </button>
+          ))}
+        </div>
+      }
     >
       {productos.length === 0 ? (
         <EmptyState mensaje="No hay productos quietos con stock." />
@@ -495,7 +489,15 @@ function TablaSinMovimientos({ productos, onExportar }) {
   )
 }
 
-function PanelTabla({ titulo, descripcion, exportLabel, onExportar, disabledExport, children }) {
+function PanelTabla({
+  titulo,
+  descripcion,
+  exportLabel,
+  onExportar,
+  disabledExport,
+  extraControls,
+  children
+}) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
       <div className="p-5 border-b border-stone-100">
@@ -513,11 +515,14 @@ function PanelTabla({ titulo, descripcion, exportLabel, onExportar, disabledExpo
             type="button"
             onClick={onExportar}
             disabled={disabledExport}
-            className="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:bg-stone-300 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:bg-stone-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shrink-0"
           >
+            <FileText className="w-4 h-4" />
             {exportLabel}
           </button>
         </div>
+
+        {extraControls}
       </div>
 
       <div className="p-4 space-y-3 max-h-[420px] overflow-y-auto">
@@ -531,10 +536,10 @@ function ProductoMiniRow({ titulo, subtitulo, derecha, badge, badgeClass }) {
   return (
     <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="font-bold text-stone-800 truncate">
+        <p className="font-bold text-stone-800 truncate" title={titulo}>
           {titulo}
         </p>
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-stone-500 truncate" title={subtitulo}>
           {subtitulo}
         </p>
       </div>
@@ -551,16 +556,45 @@ function ProductoMiniRow({ titulo, subtitulo, derecha, badge, badgeClass }) {
   )
 }
 
-function TopFlopCard({ titulo, descripcion, topTitulo, flopTitulo, topItems, flopItems, unidad }) {
+function TopFlopCard({
+  titulo,
+  descripcion,
+  topTitulo,
+  flopTitulo,
+  topItems,
+  flopItems,
+  unidad,
+  periodoRotacion,
+  setPeriodoRotacion
+}) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6">
-      <div className="mb-5">
-        <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest">
-          {titulo}
-        </h3>
-        <p className="text-xs text-stone-500 mt-1">
-          {descripcion}
-        </p>
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest">
+            {titulo}
+          </h3>
+          <p className="text-xs text-stone-500 mt-1">
+            {descripcion}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-1">
+          {PERIODOS_ROTACION.map((periodo) => (
+            <button
+              key={periodo.value}
+              type="button"
+              onClick={() => setPeriodoRotacion(periodo.value)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                periodoRotacion === periodo.value
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+              }`}
+            >
+              {periodo.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -613,16 +647,46 @@ function TopFlopCard({ titulo, descripcion, topTitulo, flopTitulo, topItems, flo
   )
 }
 
-function MargenCard({ productos, tipoMargen }) {
+function MargenCard({ productos, tipoMargen, setTipoMargen }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6">
-      <div className="mb-5">
-        <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest">
-          Mayor ratio de ganancia
-        </h3>
-        <p className="text-xs text-stone-500 mt-1">
-          Ordenado según el selector: porcentaje de margen o ganancia en pesos.
-        </p>
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest">
+            Mayor ratio de ganancia
+          </h3>
+          <p className="text-xs text-stone-500 mt-1">
+            Ordenado según el selector: porcentaje de margen o ganancia en pesos.
+          </p>
+        </div>
+
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setTipoMargen('porcentaje')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              tipoMargen === 'porcentaje'
+                ? 'bg-teal-600 text-white'
+                : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+            }`}
+          >
+            <Percent className="w-3.5 h-3.5" />
+            Porcentaje
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTipoMargen('plata')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              tipoMargen === 'plata'
+                ? 'bg-teal-600 text-white'
+                : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+            }`}
+          >
+            <DollarSign className="w-3.5 h-3.5" />
+            Dinero
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -646,12 +710,15 @@ function MargenCard({ productos, tipoMargen }) {
   )
 }
 
-function AyudaCard() {
+function AyudaCard({ diasSinMovimiento }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6">
-      <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest mb-4">
-        Criterios usados
-      </h3>
+      <div className="flex items-center gap-2 mb-4">
+        <Info className="w-5 h-5 text-teal-600" />
+        <h3 className="text-sm font-black text-stone-800 uppercase tracking-widest">
+          Criterios usados
+        </h3>
+      </div>
 
       <div className="space-y-3 text-sm text-stone-600">
         <p>
@@ -667,7 +734,7 @@ function AyudaCard() {
         </p>
 
         <p>
-          <strong>Sin movimientos:</strong> solo muestra productos con stock actual y más de 90 días sin ventas ni uso como insumo.
+          <strong>Sin movimientos:</strong> solo muestra productos con stock actual y más de {diasSinMovimiento} días sin ventas ni uso como insumo.
         </p>
 
         <p>
@@ -695,10 +762,10 @@ function RankingRow({ index, titulo, subtitulo, valor, muted = false }) {
         </span>
 
         <div className="min-w-0">
-          <p className="font-bold text-stone-800 truncate">
+          <p className="font-bold text-stone-800 truncate" title={titulo}>
             {titulo}
           </p>
-          <p className="text-xs text-stone-500">
+          <p className="text-xs text-stone-500 truncate" title={subtitulo}>
             {subtitulo}
           </p>
         </div>
@@ -719,7 +786,16 @@ function EmptyState({ mensaje }) {
   )
 }
 
-function procesarDatos({ productos, ventas, sesiones, costosServicio, comboServicios, periodoRotacion, tipoMargen }) {
+function procesarDatos({
+  productos,
+  ventas,
+  sesiones,
+  costosServicio,
+  comboServicios,
+  periodoRotacion,
+  tipoMargen,
+  diasSinMovimiento
+}) {
   const ahora = new Date()
   const inicioPeriodo = obtenerInicioPeriodo(periodoRotacion, ahora)
 
@@ -754,7 +830,7 @@ function procesarDatos({ productos, ventas, sesiones, costosServicio, comboServi
       metricas.ultimoUsoInsumo
     ])
 
-    const diasSinMovimiento = ultimoMovimiento
+    const diasSinMovimientoCalculado = ultimoMovimiento
       ? diferenciaDias(ultimoMovimiento, ahora)
       : null
 
@@ -771,7 +847,7 @@ function procesarDatos({ productos, ventas, sesiones, costosServicio, comboServi
       ultimaVenta: metricas.ultimaVenta,
       ultimoUsoInsumo: metricas.ultimoUsoInsumo,
       ultimoMovimiento,
-      diasSinMovimiento,
+      diasSinMovimiento: diasSinMovimientoCalculado,
       ultimoMovimientoTexto: ultimoMovimiento
         ? `Último movimiento: ${formatearFecha(ultimoMovimiento)}`
         : 'Sin movimientos registrados',
@@ -794,7 +870,7 @@ function procesarDatos({ productos, ventas, sesiones, costosServicio, comboServi
     .sort((a, b) => a.diasVencimiento - b.diasVencimiento)
 
   const productosSinMovimientos = productosConStock
-    .filter((producto) => producto.diasSinMovimiento === null || producto.diasSinMovimiento > 90)
+    .filter((producto) => producto.diasSinMovimiento === null || producto.diasSinMovimiento > diasSinMovimiento)
     .sort((a, b) => {
       if (a.diasSinMovimiento === null && b.diasSinMovimiento === null) return 0
       if (a.diasSinMovimiento === null) return -1
@@ -1037,7 +1113,7 @@ function agregarInfoVencimiento(producto, ahora) {
   }
 }
 
-function obtenerConfigPDF(tipo, datos) {
+function obtenerConfigPDF(tipo, datos, diasSinMovimiento) {
   if (tipo === 'reposicion') {
     return {
       titulo: 'Productos a reponer',
@@ -1070,7 +1146,7 @@ function obtenerConfigPDF(tipo, datos) {
 
   if (tipo === 'sin-movimientos') {
     return {
-      titulo: 'Productos sin movimientos por más de 90 días',
+      titulo: `Productos sin movimientos por más de ${diasSinMovimiento} días`,
       nombreArchivo: 'productos-sin-movimientos',
       columnas: ['Código', 'Producto', 'Unidades', 'Cantidad suelta', 'Último movimiento', 'Días sin movimiento'],
       filas: datos.productosSinMovimientos.map((producto) => [
