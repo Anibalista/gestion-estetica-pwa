@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import './Login.css'
 import logo from '../../assets/logo-sin-fondo.png'
-import { CalendarDays, Users, Wallet, Package } from 'lucide-react'
+import { CalendarDays, Users, Wallet, Package, Mail, Heart } from 'lucide-react'
 
 export function Login() {
   const [loading, setLoading] = useState(false)
@@ -73,14 +73,14 @@ export function Login() {
             </div>
 
             <div className="welcome-box">
-              <h3>Bienvenida <span className="material-symbols-outlined">favorite</span></h3>
+              <h3>Bienvenida <Heart size={24} /></h3>
               <p>Inicia sesión para continuar</p>
             </div>
 
             <div className="magic-card">
               <div className="magic-header">
                 <div className="mail-icon">
-                  <span className="material-symbols-outlined">mail</span>
+                  <Mail size={24} />
                 </div>
                 <div>
                   <h4>Magic Link</h4>

@@ -10,6 +10,7 @@ import { Combos } from './Combos'
 import { Turnos } from './Turnos'
 import { Ventas } from './Ventas'
 import { Insumos } from './productos/Insumos'
+import { ReportesAlertas } from './productos/ReportesAlertas'
 
 export function Dashboard({ session }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -35,11 +36,6 @@ export function Dashboard({ session }) {
       titulo: 'Informes - Productividad',
       descripcion: 'Acá vamos a mostrar métricas de turnos, atenciones, profesionales, servicios más realizados y productividad general.',
       icono: '📊'
-    },
-    'reportes-alertas': {
-      titulo: 'Reportes - Alertas',
-      descripcion: 'Acá vamos a mostrar alertas de stock bajo, productos críticos, movimientos y reportes del inventario.',
-      icono: '🚨'
     },
     'informes-ideas': {
       titulo: 'Informes - Ideas',
@@ -75,6 +71,7 @@ export function Dashboard({ session }) {
 
   const vistaConstruccion = vistasEnConstruccion[vistaActiva]
   const mostrarInsumos = vistaActiva === 'insumos' || vistaActiva === 'insumos-costos'
+  const mostrarReportesAlertas = vistaActiva === 'reportes-alertas'
 
   return (
     <div 
@@ -156,6 +153,10 @@ export function Dashboard({ session }) {
             <Insumos session={session} />
           )}
 
+          {mostrarReportesAlertas && (
+            <ReportesAlertas session={session} />
+          )}
+
           {vistaActiva === 'personalizar' && (
             <VistaPerfilEnConstruccion
               icono="🎨"
@@ -180,7 +181,7 @@ export function Dashboard({ session }) {
             />
           )}
 
-          {vistaConstruccion && !mostrarInsumos && (
+          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && (
             <VistaEnConstruccion
               icono={vistaConstruccion.icono}
               titulo={vistaConstruccion.titulo}

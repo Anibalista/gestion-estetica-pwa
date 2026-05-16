@@ -15,12 +15,11 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
   const [filtroEstado, setFiltroEstado] = useState('Todos')
   const [filtroMedioPago, setFiltroMedioPago] = useState('Todos')
   const [verAnteriores, setVerAnteriores] = useState(false)
+  const [ordenFecha, setOrdenFecha] = useState('asc')
 
-  // 1. FUNCIÓN DE FORMATEO (Literal para evitar líos de zona horaria)
   const formatearFechaHora = (isoString) => {
     if (!isoString) return { dia: '--/--/--', hora: '--:--' }
 
-    // MÉTODO LITERAL: Evita desfases por zona horaria del sistema
     const [fechaPart, horaPartFull] = isoString.split('T')
     const [anio, mes, dia] = fechaPart.split('-')
     const hora = horaPartFull.slice(0, 5)
@@ -31,7 +30,10 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
     }
   }
 
-  // 2. FUNCIÓN PARA ACTUALIZAR ESTADO DIRECTAMENTE DESDE LA LISTA
+  const cambiarOrdenFecha = () => {
+    setOrdenFecha(prev => prev === 'asc' ? 'desc' : 'asc')
+  }
+
   const actualizarEstado = async (id, nuevoEstado) => {
     try {
       const turnoActual = turnos.find(t => t.id === id)
@@ -62,7 +64,6 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
 
       if (error) throw error
 
-      // Actualizamos el estado local para que el cambio se vea al instante
       setTurnos(prev =>
         prev.map(t =>
           t.id === id
@@ -81,7 +82,6 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
     }
   }
 
-  // 3. FUNCIÓN PARA ACTUALIZAR MEDIO DE PAGO
   const actualizarMedioPago = async (id, nuevoMedioPago) => {
     try {
       const { error } = await supabase
@@ -173,6 +173,17 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
     return matchEstado && matchMedioPago && matchBusqueda
   })
 
+  const turnosOrdenados = [...turnosFiltrados].sort((a, b) => {
+    const fechaA = new Date(a.fecha_hora).getTime()
+    const fechaB = new Date(b.fecha_hora).getTime()
+
+    if (ordenFecha === 'asc') {
+      return fechaA - fechaB
+    }
+
+    return fechaB - fechaA
+  })
+
   if (loading) {
     return (
       <div className="p-10 text-center text-stone-400 font-light">
@@ -222,7 +233,6 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
         </div>
 
         <div className="flex flex-col xl:flex-row gap-3 xl:items-center">
-          {/* Filtro por estado */}
           <div className="flex overflow-x-auto pb-1 gap-2 no-scrollbar">
             {['Todos', 'Pendiente', 'Cobrada', 'Ausente', 'Anulada'].map(est => (
               <button
@@ -240,7 +250,6 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
             ))}
           </div>
 
-          {/* Filtro por medio de pago */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 whitespace-nowrap">
               Medio de pago
@@ -268,7 +277,20 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
         <table className="w-full text-left text-sm text-stone-600">
           <thead className="bg-white border-b border-stone-200 text-stone-400 uppercase text-[10px] tracking-wider font-bold">
             <tr>
-              <th className="px-6 py-4">Cita</th>
+              <th className="px-6 py-4">
+                <button
+                  type="button"
+                  onClick={cambiarOrdenFecha}
+                  className="flex items-center gap-2 uppercase text-[10px] tracking-wider font-bold text-stone-400 hover:text-teal-600 transition-colors"
+                  title={ordenFecha === 'asc' ? 'Ordenar de más nuevo a más antiguo' : 'Ordenar de más antiguo a más nuevo'}
+                >
+                  <span>Cita</span>
+                  <span className="text-sm leading-none">
+                    {ordenFecha === 'asc' ? '↑' : '↓'}
+                  </span>
+                </button>
+              </th>
+
               <th className="px-6 py-4">Paciente</th>
               <th className="px-6 py-4">Detalle</th>
               <th className="px-6 py-4 text-center">Cobro</th>
@@ -279,7 +301,7 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
           </thead>
 
           <tbody className="divide-y divide-stone-100">
-            {turnosFiltrados.length === 0 ? (
+            {turnosOrdenados.length === 0 ? (
               <tr>
                 <td
                   colSpan="7"
@@ -289,7 +311,7 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
                 </td>
               </tr>
             ) : (
-              turnosFiltrados.map((t) => {
+              turnosOrdenados.map((t) => {
                 const ahora = new Date()
                 const fechaTurno = new Date(t.fecha_hora)
                 const diferenciaMinutos = (fechaTurno - ahora) / 60000
@@ -375,7 +397,6 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
                       </div>
                     </td>
 
-                    {/* Selector de estado interactivo */}
                     <td className="px-6 py-4 text-center">
                       <select
                         value={t.estado}
@@ -404,7 +425,6 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
                       </select>
                     </td>
 
-                    {/* Selector de medio de pago si está cobrada */}
                     <td className="px-6 py-4 text-center">
                       {t.estado === 'Cobrada' ? (
                         <select
