@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import './Login.css'
 import logo from '../../assets/logo-sin-fondo.png'
+import { CalendarDays, Users, Wallet, Package } from 'lucide-react'
 
 export function Login() {
   const [loading, setLoading] = useState(false)
@@ -38,19 +39,22 @@ export function Login() {
           </h1>
           <div className="features">
             <div className="feature-item">
-              <span className="material-symbols-outlined">calendar_month</span>
+              <CalendarDays size={28} />
               <p>Agenda y citas</p>
             </div>
+
             <div className="feature-item">
-              <span className="material-symbols-outlined">group</span>
+              <Users size={28} />
               <p>Clientes e historial</p>
             </div>
+
             <div className="feature-item">
-              <span className="material-symbols-outlined">payments</span>
+              <Wallet size={28} />
               <p>Ventas e ingresos</p>
             </div>
+
             <div className="feature-item">
-              <span className="material-symbols-outlined">inventory_2</span>
+              <Package size={28} />
               <p>Productos e inventario</p>
             </div>
           </div>
