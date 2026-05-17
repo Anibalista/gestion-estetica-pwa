@@ -13,6 +13,7 @@ import { Insumos } from './productos/Insumos'
 import { ReportesAlertas } from './productos/ReportesAlertas'
 import { InformesProductividad } from './turnos/InformesProductividad'
 import { InformesIdeas } from './clientes/InformesIdeas'
+import { InformesAdministracion } from './servicios/InformesAdministracion'
 
 export function Dashboard({ session }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -33,11 +34,6 @@ export function Dashboard({ session }) {
       titulo: 'Registrar Atención',
       descripcion: 'Acá vamos a registrar una atención realizada, asociarla a un cliente, turno, servicio, profesional y monto cobrado.',
       icono: '📝'
-    },
-    'informes-administracion': {
-      titulo: 'Informes - Administración',
-      descripcion: 'Acá vamos a mostrar análisis administrativos de servicios, combos, costos y rendimiento.',
-      icono: '📋'
     },
     'cierre-caja': {
       titulo: 'Cierre de Caja',
@@ -66,6 +62,7 @@ export function Dashboard({ session }) {
   const mostrarReportesAlertas = vistaActiva === 'reportes-alertas'
   const mostrarInformesProductividad = vistaActiva === 'informes-productividad'
   const mostrarInformesIdeas = vistaActiva === 'informes-ideas'
+  const mostrarInformesAdministracion = vistaActiva === 'informes-administracion'
 
   return (
     <div 
@@ -159,6 +156,10 @@ export function Dashboard({ session }) {
             <InformesIdeas session={session} />
           )}
 
+          {mostrarInformesAdministracion && (
+            <InformesAdministracion session={session} />
+          )}
+
           {vistaActiva === 'personalizar' && (
             <VistaPerfilEnConstruccion
               icono="🎨"
@@ -183,7 +184,7 @@ export function Dashboard({ session }) {
             />
           )}
 
-          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && !mostrarInformesProductividad && !mostrarInformesIdeas && (
+          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && !mostrarInformesProductividad && !mostrarInformesIdeas && !mostrarInformesAdministracion && (
             <VistaEnConstruccion
               icono={vistaConstruccion.icono}
               titulo={vistaConstruccion.titulo}
