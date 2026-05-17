@@ -50,7 +50,7 @@ const ESTADO_COLORES = {
   Ausente: '#78716c'
 }
 
-export function InformesProductividad({ session }) {
+export function InformesProductividad({ session, empresaActiva, rolEmpresa }) {
   const [loading, setLoading] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
   const [periodo, setPeriodo] = useState('mes')
@@ -68,53 +68,62 @@ export function InformesProductividad({ session }) {
   })
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && empresaActiva?.id) {
       cargarDatos()
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, empresaActiva?.id])
 
   const cargarDatos = async () => {
     setLoading(true)
     setErrorCarga('')
 
     try {
-      const [sesionesResponse, comboServiciosResponse] = await Promise.all([
-        supabase
-          .from('sesiones')
-          .select(`
+      const puedeVerEmpresaCompleta = ['Dueño', 'Administrador', 'Recepcionista'].includes(rolEmpresa)
+
+      let sesionesQuery = supabase
+        .from('sesiones')
+        .select(`
+          id,
+          cliente_id,
+          profesional_id,
+          empresa_id,
+          fecha_hora,
+          monto_total,
+          monto_cobrado,
+          estado,
+          duracion_total,
+          a_domicilio,
+          medio_pago,
+          clientes (
             id,
-            cliente_id,
-            profesional_id,
-            fecha_hora,
-            monto_total,
-            monto_cobrado,
-            estado,
-            duracion_total,
-            a_domicilio,
-            medio_pago,
-            clientes (
+            nombre,
+            telefono
+          ),
+          sesion_detalles (
+            id,
+            servicio_id,
+            combo_id,
+            precio_cobrado,
+            servicios (
               id,
               nombre,
-              telefono
+              duracion_minutos
             ),
-            sesion_detalles (
+            combos (
               id,
-              servicio_id,
-              combo_id,
-              precio_cobrado,
-              servicios (
-                id,
-                nombre,
-                duracion_minutos
-              ),
-              combos (
-                id,
-                nombre,
-                duracion_minutos
-              )
+              nombre,
+              duracion_minutos
             )
-          `)
-          .eq('profesional_id', session.user.id),
+          )
+        `)
+        .eq('empresa_id', empresaActiva.id)
+
+      if (!puedeVerEmpresaCompleta) {
+        sesionesQuery = sesionesQuery.eq('profesional_id', session.user.id)
+      }
+
+      const [sesionesResponse, comboServiciosResponse] = await Promise.all([
+        sesionesQuery,
 
         supabase
           .from('combo_servicios')
@@ -169,6 +178,7 @@ export function InformesProductividad({ session }) {
     doc.text(`Fecha: ${fecha}`, 14, 26)
     doc.text(`Período: ${obtenerLabelPeriodo(periodo)}`, 14, 32)
     doc.text(`Profesional: ${session?.user?.email || 'Sin email'}`, 14, 38)
+    doc.text(`Empresa: ${empresaActiva?.nombre || 'Sin empresa'}`, 14, 44)
 
     autoTable(doc, {
       startY: 46,

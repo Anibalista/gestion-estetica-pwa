@@ -32,7 +32,7 @@ const DIAS_SIN_MOVIMIENTO = [
   { value: 180, label: '+180 días' }
 ]
 
-export function ReportesAlertas({ session }) {
+export function ReportesAlertas({ session, empresaActiva, rolEmpresa }) {
   const [loading, setLoading] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
   const [periodoRotacion, setPeriodoRotacion] = useState('90')
@@ -46,18 +46,63 @@ export function ReportesAlertas({ session }) {
   const [comboServicios, setComboServicios] = useState([])
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && empresaActiva?.id) {
       cargarDatos()
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, empresaActiva?.id])
 
   const cargarDatos = async () => {
     setLoading(true)
     setErrorCarga('')
 
     try {
+      const puedeVerEmpresaCompleta = ['Dueño', 'Administrador', 'Recepcionista'].includes(rolEmpresa)
+
+      let ventasQuery = supabase
+        .from('ventas')
+        .select(`
+          id,
+          profesional_id,
+          empresa_id,
+          fecha_hora,
+          estado,
+          venta_detalles (
+            id,
+            producto_id,
+            descripcion,
+            cantidad,
+            precio_unitario,
+            subtotal
+          )
+        `)
+        .eq('empresa_id', empresaActiva.id)
+        .eq('estado', 'Completada')
+
+      let sesionesQuery = supabase
+        .from('sesiones')
+        .select(`
+          id,
+          profesional_id,
+          empresa_id,
+          fecha_hora,
+          estado,
+          sesion_detalles (
+            id,
+            servicio_id,
+            combo_id
+          )
+        `)
+        .eq('empresa_id', empresaActiva.id)
+        .eq('estado', 'Cobrada')
+
+      if (!puedeVerEmpresaCompleta) {
+        ventasQuery = ventasQuery.eq('profesional_id', session.user.id)
+        sesionesQuery = sesionesQuery.eq('profesional_id', session.user.id)
+      }
+
       const [
-        productosResponse,
+        productosPersonalesResponse,
+        productosEmpresaResponse,
         ventasResponse,
         sesionesResponse,
         costosResponse,
@@ -68,6 +113,8 @@ export function ReportesAlertas({ session }) {
           .select(`
             id,
             profesional_id,
+            empresa_id,
+            alcance_stock,
             codigo,
             descripcion,
             dosificacion,
@@ -81,42 +128,34 @@ export function ReportesAlertas({ session }) {
             activo
           `)
           .eq('profesional_id', session.user.id)
+          .eq('alcance_stock', 'Profesional')
           .eq('activo', true),
 
         supabase
-          .from('ventas')
+          .from('productos')
           .select(`
             id,
             profesional_id,
-            fecha_hora,
-            estado,
-            venta_detalles (
-              id,
-              producto_id,
-              descripcion,
-              cantidad,
-              precio_unitario,
-              subtotal
-            )
+            empresa_id,
+            alcance_stock,
+            codigo,
+            descripcion,
+            dosificacion,
+            unidad_medida,
+            cantidad_suelta,
+            unidades_enteras,
+            precio_venta,
+            costo_unidad,
+            proximo_vencimiento,
+            stock_minimo,
+            activo
           `)
-          .eq('profesional_id', session.user.id)
-          .eq('estado', 'Completada'),
+          .eq('empresa_id', empresaActiva.id)
+          .eq('alcance_stock', 'Empresa')
+          .eq('activo', true),
 
-        supabase
-          .from('sesiones')
-          .select(`
-            id,
-            profesional_id,
-            fecha_hora,
-            estado,
-            sesion_detalles (
-              id,
-              servicio_id,
-              combo_id
-            )
-          `)
-          .eq('profesional_id', session.user.id)
-          .eq('estado', 'Cobrada'),
+        ventasQuery,
+        sesionesQuery,
 
         supabase
           .from('costo_servicio')
@@ -139,16 +178,30 @@ export function ReportesAlertas({ session }) {
           `)
       ])
 
-      if (productosResponse.error) throw productosResponse.error
+      if (productosPersonalesResponse.error) throw productosPersonalesResponse.error
+      if (productosEmpresaResponse.error) throw productosEmpresaResponse.error
       if (ventasResponse.error) throw ventasResponse.error
       if (sesionesResponse.error) throw sesionesResponse.error
       if (costosResponse.error) throw costosResponse.error
       if (comboServiciosResponse.error) throw comboServiciosResponse.error
 
-      setProductos(productosResponse.data || [])
+      const productosUnidos = [
+        ...(productosPersonalesResponse.data || []),
+        ...(productosEmpresaResponse.data || [])
+      ]
+
+      const productosFiltrados = Array.from(
+        new Map(productosUnidos.map((producto) => [producto.id, producto])).values()
+      )
+
+      const idsProductos = new Set(productosFiltrados.map((producto) => producto.id))
+      const costosFiltrados = (costosResponse.data || [])
+        .filter((costo) => !costo.producto_id || idsProductos.has(costo.producto_id))
+
+      setProductos(productosFiltrados)
       setVentas(ventasResponse.data || [])
       setSesiones(sesionesResponse.data || [])
-      setCostosServicio(costosResponse.data || [])
+      setCostosServicio(costosFiltrados)
       setComboServicios(comboServiciosResponse.data || [])
 
     } catch (error) {
@@ -946,6 +999,9 @@ function normalizarProducto(producto) {
     precioVenta: Number(producto.precio_venta || 0),
     costoUnidad: Number(producto.costo_unidad || 0),
     proximoVencimiento: producto.proximo_vencimiento || null,
+    alcanceStock: producto.alcance_stock || 'Profesional',
+    empresaId: producto.empresa_id || null,
+    profesionalId: producto.profesional_id || null,
     stockTotalSuelto: cantidadSuelta + (unidadesEnteras * dosificacion)
   }
 }

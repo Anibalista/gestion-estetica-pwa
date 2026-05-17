@@ -16,7 +16,7 @@ import {
   Bar
 } from 'recharts'
 
-export function Insumos({ session }) {
+export function Insumos({ session, empresaActiva, rolEmpresa }) {
   const [loading, setLoading] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
   const [insumos, setInsumos] = useState([])
@@ -36,16 +36,36 @@ export function Insumos({ session }) {
   })
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && empresaActiva?.id) {
       cargarReportes()
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, empresaActiva?.id, rolEmpresa])
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && empresaActiva?.id) {
       cargarReportes()
     }
   }, [periodoAcumulado])
+
+  const filtrarSesionesPorRol = (sesionesOriginales) => {
+    if (!Array.isArray(sesionesOriginales)) {
+      return []
+    }
+
+    const rolesQueVenEmpresaCompleta = [
+      'Dueño',
+      'Administrador',
+      'Recepcionista'
+    ]
+
+    if (rolesQueVenEmpresaCompleta.includes(rolEmpresa)) {
+      return sesionesOriginales
+    }
+
+    return sesionesOriginales.filter((sesion) => {
+      return sesion.profesional_id === session.user.id
+    })
+  }
 
   const cargarReportes = async () => {
     setLoading(true)
@@ -53,7 +73,8 @@ export function Insumos({ session }) {
 
     try {
       const [
-        productosResponse,
+        productosPersonalesResponse,
+        productosEmpresaResponse,
         costosResponse,
         sesionesResponse,
         comboServiciosResponse,
@@ -64,6 +85,8 @@ export function Insumos({ session }) {
           .select(`
             id,
             profesional_id,
+            empresa_id,
+            alcance_stock,
             codigo,
             descripcion,
             dosificacion,
@@ -77,6 +100,30 @@ export function Insumos({ session }) {
             activo
           `)
           .eq('profesional_id', session.user.id)
+          .eq('alcance_stock', 'Profesional')
+          .eq('activo', true),
+
+        supabase
+          .from('productos')
+          .select(`
+            id,
+            profesional_id,
+            empresa_id,
+            alcance_stock,
+            codigo,
+            descripcion,
+            dosificacion,
+            unidad_medida,
+            cantidad_suelta,
+            unidades_enteras,
+            precio_venta,
+            costo_unidad,
+            proximo_vencimiento,
+            stock_minimo,
+            activo
+          `)
+          .eq('empresa_id', empresaActiva.id)
+          .eq('alcance_stock', 'Empresa')
           .eq('activo', true),
 
         supabase
@@ -100,6 +147,7 @@ export function Insumos({ session }) {
             monto_cobrado,
             estado,
             profesional_id,
+            empresa_id,
             sesion_detalles (
               id,
               servicio_id,
@@ -107,7 +155,7 @@ export function Insumos({ session }) {
               precio_cobrado
             )
           `)
-          .eq('profesional_id', session.user.id)
+          .eq('empresa_id', empresaActiva.id)
           .eq('estado', 'Cobrada'),
 
         supabase
@@ -130,15 +178,26 @@ export function Insumos({ session }) {
           `)
       ])
 
-      if (productosResponse.error) throw productosResponse.error
+      if (productosPersonalesResponse.error) throw productosPersonalesResponse.error
+      if (productosEmpresaResponse.error) throw productosEmpresaResponse.error
       if (costosResponse.error) throw costosResponse.error
       if (sesionesResponse.error) throw sesionesResponse.error
       if (comboServiciosResponse.error) throw comboServiciosResponse.error
       if (serviciosResponse.error) throw serviciosResponse.error
 
-      const productos = productosResponse.data || []
-      const costosServicios = costosResponse.data || []
-      const sesiones = sesionesResponse.data || []
+      const productosUnidos = [
+        ...(productosPersonalesResponse.data || []),
+        ...(productosEmpresaResponse.data || [])
+      ]
+
+      const productos = Array.from(
+        new Map(productosUnidos.map((producto) => [producto.id, producto])).values()
+      )
+
+      const idsProductos = new Set(productos.map((producto) => producto.id))
+      const costosServicios = (costosResponse.data || [])
+        .filter((costo) => !costo.producto_id || idsProductos.has(costo.producto_id))
+      const sesiones = filtrarSesionesPorRol(sesionesResponse.data || [], session.user.id, rolEmpresa)
       const comboServicios = comboServiciosResponse.data || []
       const servicios = serviciosResponse.data || []
 
@@ -1475,4 +1534,13 @@ function EmptyTop({ mensaje }) {
       {mensaje}
     </div>
   )
+
+function filtrarSesionesPorRol(sesiones, profesionalId, rolEmpresa) {
+  const puedeVerEmpresaCompleta = ['Dueño', 'Administrador', 'Recepcionista'].includes(rolEmpresa)
+
+  if (puedeVerEmpresaCompleta) return sesiones
+
+  return sesiones.filter((sesion) => sesion.profesional_id === profesionalId)
+}
+
 }
