@@ -2,13 +2,19 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 
-export function ProductosStock({ session, onEditar }) {
+export function ProductosStock({
+  session,
+  empresaActiva,
+  rolEmpresa,
+  onEditar
+}) {
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(true)
-  
+
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('activos')
   const [filtroStock, setFiltroStock] = useState('todos')
+  const [filtroAlcance, setFiltroAlcance] = useState('todos')
 
   const [orden, setOrden] = useState({
     campo: 'descripcion',
@@ -16,22 +22,48 @@ export function ProductosStock({ session, onEditar }) {
   })
 
   useEffect(() => {
-    fetchProductos()
-  }, [session.user.id])
+    if (empresaActiva?.id) {
+      fetchProductos()
+    }
+  }, [session.user.id, empresaActiva?.id])
 
   const fetchProductos = async () => {
     setLoading(true)
 
-    const { data, error } = await supabase
-      .from('productos')
-      .select('*')
-      .eq('profesional_id', session.user.id)
+    try {
+      const [personalesResponse, empresaResponse] = await Promise.all([
+        supabase
+          .from('productos')
+          .select('*')
+          .eq('profesional_id', session.user.id)
+          .eq('alcance_stock', 'Profesional'),
 
-    if (!error) {
-      setProductos(data || [])
+        supabase
+          .from('productos')
+          .select('*')
+          .eq('empresa_id', empresaActiva.id)
+          .eq('alcance_stock', 'Empresa')
+      ])
+
+      if (personalesResponse.error) throw personalesResponse.error
+      if (empresaResponse.error) throw empresaResponse.error
+
+      const unidos = [
+        ...(personalesResponse.data || []),
+        ...(empresaResponse.data || [])
+      ]
+
+      const sinDuplicados = Array.from(
+        new Map(unidos.map((producto) => [producto.id, producto])).values()
+      )
+
+      setProductos(sinDuplicados)
+    } catch (error) {
+      console.error('Error cargando productos:', error)
+      setProductos([])
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   const toggleAnular = async (producto) => {
@@ -93,17 +125,9 @@ export function ProductosStock({ session, onEditar }) {
   }
 
   const obtenerValorOrden = (producto, campo) => {
-    if (campo === 'codigo') {
-      return producto.codigo || ''
-    }
-
-    if (campo === 'descripcion') {
-      return producto.descripcion || ''
-    }
-
-    if (campo === 'stock') {
-      return obtenerStockTotal(producto)
-    }
+    if (campo === 'codigo') return producto.codigo || ''
+    if (campo === 'descripcion') return producto.descripcion || ''
+    if (campo === 'stock') return obtenerStockTotal(producto)
 
     if (campo === 'vencimiento') {
       if (!producto.proximo_vencimiento) return null
@@ -214,13 +238,17 @@ export function ProductosStock({ session, onEditar }) {
       (filtroStock === 'con-stock' && productoTieneStock) ||
       (filtroStock === 'sin-stock' && !productoTieneStock)
 
+    const matchAlcance =
+      filtroAlcance === 'todos' ||
+      p.alcance_stock === filtroAlcance
+
     const termino = busqueda.toLowerCase()
 
-    const matchBusqueda = 
-      (p.descripcion && p.descripcion.toLowerCase().includes(termino)) || 
+    const matchBusqueda =
+      (p.descripcion && p.descripcion.toLowerCase().includes(termino)) ||
       (p.codigo && p.codigo.toLowerCase().includes(termino))
 
-    return matchEstado && matchStock && matchBusqueda
+    return matchEstado && matchStock && matchAlcance && matchBusqueda
   })
 
   const productosOrdenados = [...productosFiltrados].sort((a, b) => {
@@ -241,30 +269,28 @@ export function ProductosStock({ session, onEditar }) {
 
   return (
     <div className="flex flex-col h-full">
-      
       <div className="bg-stone-50 p-4 border-b border-stone-200 flex flex-col gap-4">
-        
         <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4">
           <div className="relative w-full xl:w-1/3">
-            <input 
-              type="text" 
-              placeholder="Buscar por código o descripción..." 
+            <input
+              type="text"
+              placeholder="Buscar por código o descripción..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-teal-500"
             />
 
-            <svg 
-              className="w-5 h-5 text-stone-400 absolute left-3 top-2.5" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className="w-5 h-5 text-stone-400 absolute left-3 top-2.5"
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
           </div>
@@ -291,6 +317,17 @@ export function ProductosStock({ session, onEditar }) {
                 { value: 'sin-stock', label: 'Sin stock' }
               ]}
             />
+
+            <FiltroSelect
+              label="Origen"
+              value={filtroAlcance}
+              onChange={setFiltroAlcance}
+              options={[
+                { value: 'todos', label: 'Todos' },
+                { value: 'Profesional', label: 'Personal' },
+                { value: 'Empresa', label: 'Empresa' }
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -315,6 +352,10 @@ export function ProductosStock({ session, onEditar }) {
                   orden={orden}
                   onClick={cambiarOrden}
                 />
+              </th>
+
+              <th className="px-6 py-4 text-center">
+                Origen
               </th>
 
               <th className="px-6 py-4 text-center">
@@ -350,10 +391,9 @@ export function ProductosStock({ session, onEditar }) {
           </thead>
 
           <tbody className="divide-y divide-stone-100">
-            
             {productosOrdenados.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-stone-400 font-light">
+                <td colSpan="7" className="px-6 py-12 text-center text-stone-400 font-light">
                   No se encontraron productos con esos filtros.
                 </td>
               </tr>
@@ -366,16 +406,16 @@ export function ProductosStock({ session, onEditar }) {
                 const vencimiento = obtenerEstadoVencimiento(p.proximo_vencimiento)
 
                 return (
-                  <tr 
-                    key={p.id} 
+                  <tr
+                    key={p.id}
                     className={`hover:bg-stone-50 group transition-colors ${!esActivo ? 'bg-stone-50 opacity-60 grayscale' : ''}`}
                   >
                     <td className="px-6 py-4 font-mono text-xs font-bold text-stone-500">
                       {p.codigo}
                     </td>
-                    
+
                     <td className="px-6 py-4">
-                      <div 
+                      <div
                         className={`font-medium ${!esActivo ? 'text-stone-500 line-through' : 'text-stone-800'}`}
                         title={p.descripcion}
                       >
@@ -392,7 +432,17 @@ export function ProductosStock({ session, onEditar }) {
                         </span>
                       )}
                     </td>
-                    
+
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                        p.alcance_stock === 'Empresa'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-teal-100 text-teal-700'
+                      }`}>
+                        {p.alcance_stock === 'Empresa' ? 'Empresa' : 'Personal'}
+                      </span>
+                    </td>
+
                     <td className="px-6 py-4 text-center">
                       <div className={`font-bold text-sm ${alertaStock && esActivo ? 'text-red-500' : 'text-stone-700'}`}>
                         {unidadesEnteras} unid.
@@ -418,14 +468,14 @@ export function ProductosStock({ session, onEditar }) {
                         {vencimiento.texto}
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4 text-center font-medium text-stone-800">
                       ${Number(p.precio_venta || 0).toFixed(2)}
                     </td>
-                    
+
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 group-hover:opacity-100 transition-opacity">
-                        <button 
+                        <button
                           type="button"
                           onClick={() => onEditar(p)}
                           className="bg-stone-100 text-stone-600 px-3 py-1.5 rounded hover:bg-teal-100 hover:text-teal-700 transition-all text-xs font-bold"
@@ -433,12 +483,12 @@ export function ProductosStock({ session, onEditar }) {
                           EDITAR
                         </button>
 
-                        <button 
+                        <button
                           type="button"
                           onClick={() => toggleAnular(p)}
                           className={`px-3 py-1.5 rounded transition-all text-xs font-bold ${
-                            esActivo 
-                              ? 'bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-800' 
+                            esActivo
+                              ? 'bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-800'
                               : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
                           }`}
                         >
@@ -450,7 +500,6 @@ export function ProductosStock({ session, onEditar }) {
                 )
               })
             )}
-
           </tbody>
         </table>
       </div>

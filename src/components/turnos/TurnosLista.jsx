@@ -8,7 +8,13 @@ const MEDIOS_PAGO = [
   'Tarjeta'
 ]
 
-export function TurnosLista({ session, onEditar, onVerDetalle }) {
+export function TurnosLista({
+  session,
+  empresaActiva,
+  rolEmpresa,
+  onEditar,
+  onVerDetalle
+}) {
   const [turnos, setTurnos] = useState([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -34,14 +40,103 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
     setOrdenFecha(prev => prev === 'asc' ? 'desc' : 'asc')
   }
 
+  const registrarIngresoCajaSesion = async (turno, datosActualizar) => {
+  if (!empresaActiva?.id) {
+    throw new Error('No hay empresa activa seleccionada.')
+  }
+
+  const montoCobrado = Number(datosActualizar.monto_cobrado || turno.monto_cobrado || turno.monto_total || 0)
+
+  if (montoCobrado <= 0) {
+    throw new Error('El monto cobrado debe ser mayor a cero.')
+  }
+
+  const medioPago = datosActualizar.medio_pago || turno.medio_pago || 'Efectivo'
+
+  const { data: movimientoExistente, error: errorMovimientoExistente } = await supabase
+    .from('caja_movimientos')
+    .select('id')
+    .eq('sesion_id', turno.id)
+    .eq('tipo_movimiento', 'Ingreso')
+    .maybeSingle()
+
+  if (errorMovimientoExistente) throw errorMovimientoExistente
+
+  if (movimientoExistente) return
+
+  const { error } = await supabase.rpc('registrar_movimiento_caja', {
+    p_empresa_id: empresaActiva.id,
+    p_profesional_id: session.user.id,
+    p_medio_pago: medioPago,
+    p_tipo_movimiento: 'Ingreso',
+    p_monto: montoCobrado,
+    p_descripcion: `Cobro de sesión`,
+    p_categoria: 'Sesion',
+    p_observaciones: turno.observaciones || null,
+    p_venta_id: null,
+    p_sesion_id: turno.id,
+    p_creado_por: session.user.id,
+    p_movimiento_relacionado_id: null
+  })
+
+  if (error) throw error
+}
+
+  const registrarAnulacionCajaSesion = async (turno) => {
+    const { data: ingreso, error: errorIngreso } = await supabase
+      .from('caja_movimientos')
+      .select('id, monto, medio_pago')
+      .eq('sesion_id', turno.id)
+      .eq('tipo_movimiento', 'Ingreso')
+      .maybeSingle()
+
+    if (errorIngreso) throw errorIngreso
+    if (!ingreso) return
+
+    const { data: anulacionExistente, error: errorAnulacionExistente } = await supabase
+      .from('caja_movimientos')
+      .select('id')
+      .eq('movimiento_relacionado_id', ingreso.id)
+      .eq('tipo_movimiento', 'Anulacion')
+      .maybeSingle()
+
+    if (errorAnulacionExistente) throw errorAnulacionExistente
+    if (anulacionExistente) return
+
+    const { error } = await supabase.rpc('registrar_movimiento_caja', {
+      p_empresa_id: empresaActiva.id,
+      p_profesional_id: session.user.id,
+      p_medio_pago: ingreso.medio_pago || turno.medio_pago || 'Efectivo',
+      p_tipo_movimiento: 'Anulacion',
+      p_monto: Math.abs(Number(ingreso.monto || 0)),
+      p_descripcion: 'Anulación de cobro de sesión',
+      p_categoria: 'Anulacion',
+      p_observaciones: `Anulación automática por cambio de estado de sesión.`,
+      p_venta_id: null,
+      p_sesion_id: turno.id,
+      p_creado_por: session.user.id,
+      p_movimiento_relacionado_id: ingreso.id
+    })
+
+    if (error) throw error
+  }
+
   const actualizarEstado = async (id, nuevoEstado) => {
     try {
       const turnoActual = turnos.find(t => t.id === id)
 
       if (!turnoActual) return
 
+      if (!empresaActiva?.id) {
+        alert('Debes seleccionar una empresa activa antes de cobrar sesiones.')
+        return
+      }
+
+      const estadoAnterior = turnoActual.estado
+
       const datosActualizar = {
-        estado: nuevoEstado
+        estado: nuevoEstado,
+        empresa_id: turnoActual.empresa_id || empresaActiva.id
       }
 
       if (nuevoEstado === 'Cobrada') {
@@ -50,8 +145,7 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
             ? Number(turnoActual.monto_cobrado)
             : Number(turnoActual.monto_total) || 0
 
-        datosActualizar.medio_pago =
-          turnoActual.medio_pago || 'Efectivo'
+        datosActualizar.medio_pago = turnoActual.medio_pago || 'Efectivo'
       } else {
         datosActualizar.monto_cobrado = 0
         datosActualizar.medio_pago = null
@@ -64,12 +158,21 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
 
       if (error) throw error
 
+      if (nuevoEstado === 'Cobrada' && estadoAnterior !== 'Cobrada') {
+        await registrarIngresoCajaSesion(turnoActual, datosActualizar)
+      }
+
+      if (estadoAnterior === 'Cobrada' && nuevoEstado !== 'Cobrada') {
+        await registrarAnulacionCajaSesion(turnoActual)
+      }
+
       setTurnos(prev =>
         prev.map(t =>
           t.id === id
             ? {
                 ...t,
                 estado: nuevoEstado,
+                empresa_id: datosActualizar.empresa_id,
                 monto_cobrado: datosActualizar.monto_cobrado,
                 medio_pago: datosActualizar.medio_pago
               }
@@ -78,64 +181,91 @@ export function TurnosLista({ session, onEditar, onVerDetalle }) {
       )
     } catch (err) {
       console.error('Error al actualizar estado:', err.message)
-      alert('No se pudo actualizar el estado. Intenta de nuevo.')
+      alert('No se pudo actualizar el estado. ' + err.message)
     }
   }
 
   const actualizarMedioPago = async (id, nuevoMedioPago) => {
     try {
+      const turnoActual = turnos.find(t => t.id === id)
+
+      if (!turnoActual) return
+
+      if (!empresaActiva?.id) {
+        alert('Debes seleccionar una empresa activa antes de modificar el medio de pago.')
+        return
+      }
+
+      if (turnoActual.estado === 'Cobrada') {
+        await registrarAnulacionCajaSesion(turnoActual)
+      }
+
       const { error } = await supabase
         .from('sesiones')
         .update({
-          medio_pago: nuevoMedioPago
+          medio_pago: nuevoMedioPago,
+          empresa_id: turnoActual.empresa_id || empresaActiva.id
         })
         .eq('id', id)
 
       if (error) throw error
+
+      const turnoActualizado = {
+        ...turnoActual,
+        medio_pago: nuevoMedioPago,
+        empresa_id: turnoActual.empresa_id || empresaActiva.id
+      }
+
+      if (turnoActual.estado === 'Cobrada') {
+        await registrarIngresoCajaSesion(turnoActualizado, {
+          monto_cobrado: turnoActual.monto_cobrado,
+          medio_pago: nuevoMedioPago
+        })
+      }
 
       setTurnos(prev =>
         prev.map(t =>
           t.id === id
             ? {
                 ...t,
-                medio_pago: nuevoMedioPago
+                medio_pago: nuevoMedioPago,
+                empresa_id: turnoActual.empresa_id || empresaActiva.id
               }
             : t
         )
       )
     } catch (err) {
       console.error('Error al actualizar medio de pago:', err.message)
-      alert('No se pudo actualizar el medio de pago. Intenta de nuevo.')
+      alert('No se pudo actualizar el medio de pago. ' + err.message)
     }
   }
 
   useEffect(() => {
-    fetchTurnos()
-  }, [session.user.id, verAnteriores])
+    if (empresaActiva?.id) {
+      fetchTurnos()
+    }
+  }, [session.user.id, empresaActiva?.id, verAnteriores])
 
   const fetchTurnos = async () => {
     setLoading(true)
 
     try {
       let query = supabase
-        .from('sesiones')
-        .select(`
-          *,
-          clientes ( 
-            nombre,
-            telefono,
-            direcciones ( * ) 
-          ),
-          sesion_detalles (
-            servicio_id,    
-            combo_id,         
-            precio_cobrado,
-            servicios ( nombre, duracion_minutos ),
-            combos ( nombre, duracion_minutos )
-          )
-        `)
-        .eq('profesional_id', session.user.id)
-        .order('fecha_hora', { ascending: true })
+      .from('sesiones')
+      .select(`
+        *,
+        clientes ( nombre, telefono, direcciones ( * ) ),
+        sesion_detalles (
+          servicio_id,
+          combo_id,
+          precio_cobrado,
+          servicios ( nombre, duracion_minutos ),
+          combos ( nombre, duracion_minutos )
+        )
+      `)
+      .eq('profesional_id', session.user.id)
+      .eq('empresa_id', empresaActiva.id)
+      .order('fecha_hora', { ascending: true })
 
       if (!verAnteriores) {
         const hoy = new Date()

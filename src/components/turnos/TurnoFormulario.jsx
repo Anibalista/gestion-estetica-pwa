@@ -8,7 +8,14 @@ const MEDIOS_PAGO = [
   'Tarjeta'
 ]
 
-export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }) {
+export function TurnoFormulario({
+  session,
+  empresaActiva,
+  rolEmpresa,
+  turnoInicial,
+  onGuardar,
+  onCancelar
+}) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [busqueda, setBusqueda] = useState('')
@@ -269,6 +276,14 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
     e.preventDefault()
     setFeedback(null)
 
+    if (!empresaActiva?.id) {
+      setFeedback({
+        tipo: 'error',
+        mensaje: 'Debes seleccionar una empresa activa antes de registrar una sesión.'
+      })
+      return
+    }
+
     if (!formData.fecha || !formData.hora) {
       setFeedback({
         tipo: 'error',
@@ -348,17 +363,12 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
       const datosSesion = {
         cliente_id: formData.cliente_id,
         profesional_id: session.user.id,
+        empresa_id: empresaActiva.id,
         fecha_hora: `${formData.fecha}T${formData.hora}:00`,
         monto_total: totales.monto,
         duracion_total: duracionActual,
-        monto_cobrado:
-          formData.estado === 'Cobrada'
-            ? parseFloat(formData.monto_cobrado) || 0
-            : 0,
-        medio_pago:
-          formData.estado === 'Cobrada'
-            ? formData.medio_pago
-            : null,
+        monto_cobrado: formData.estado === 'Cobrada' ? parseFloat(formData.monto_cobrado) || 0 : 0,
+        medio_pago: formData.estado === 'Cobrada' ? formData.medio_pago : null,
         observaciones: formData.observaciones,
         estado: formData.estado,
         a_domicilio: aDomicilio
@@ -406,6 +416,36 @@ export function TurnoFormulario({ session, turnoInicial, onGuardar, onCancelar }
         .insert(lineas)
 
       if (errorInsertDetalles) throw errorInsertDetalles
+
+      if (datosSesion.estado === 'Cobrada' && datosSesion.monto_cobrado > 0) {
+        const { data: movimientoExistente, error: errorMovimientoExistente } = await supabase
+          .from('caja_movimientos')
+          .select('id')
+          .eq('sesion_id', sesionId)
+          .eq('tipo_movimiento', 'Ingreso')
+          .maybeSingle()
+
+        if (errorMovimientoExistente) throw errorMovimientoExistente
+
+        if (!movimientoExistente) {
+          const { error: errorCaja } = await supabase.rpc('registrar_movimiento_caja', {
+            p_empresa_id: empresaActiva.id,
+            p_profesional_id: session.user.id,
+            p_medio_pago: datosSesion.medio_pago,
+            p_tipo_movimiento: 'Ingreso',
+            p_monto: datosSesion.monto_cobrado,
+            p_descripcion: 'Cobro de sesión',
+            p_categoria: 'Sesion',
+            p_observaciones: datosSesion.observaciones || null,
+            p_venta_id: null,
+            p_sesion_id: sesionId,
+            p_creado_por: session.user.id,
+            p_movimiento_relacionado_id: null
+          })
+
+          if (errorCaja) throw errorCaja
+        }
+      }
 
       if (aDomicilio && formData.cliente_id) {
         const { error: errorDireccion } = await supabase
