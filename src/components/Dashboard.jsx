@@ -15,6 +15,8 @@ import { InformesProductividad } from './turnos/InformesProductividad'
 import { InformesIdeas } from './clientes/InformesIdeas'
 import { InformesAdministracion } from './servicios/InformesAdministracion'
 import { EmpresaSelector } from './EmpresaSelector'
+import { CierreCaja } from './finanzas/CierreCaja'
+import { VerTransacciones } from './finanzas/VerTransacciones'
 import { Building2, Loader2 } from 'lucide-react'
 
 export function Dashboard({ session }) {
@@ -192,20 +194,10 @@ export function Dashboard({ session }) {
       descripcion: 'Acá vamos a registrar una atención realizada, asociarla a un cliente, turno, servicio, profesional y monto cobrado.',
       icono: '📝'
     },
-    'cierre-caja': {
-      titulo: 'Cierre de Caja',
-      descripcion: 'Acá vamos a registrar y revisar el cierre diario de caja, ingresos, egresos y diferencias.',
-      icono: '💵'
-    },
     'reportes-comparativos': {
       titulo: 'Reportes Comparativos',
       descripcion: 'Acá vamos a comparar períodos, ventas, servicios, productos, clientes y rendimiento financiero.',
       icono: '📈'
-    },
-    'ver-transacciones': {
-      titulo: 'Ver Transacciones',
-      descripcion: 'Acá vamos a listar todas las transacciones económicas: cobros, pagos, ventas y movimientos de caja.',
-      icono: '💳'
     },
     'informes-estadisticos': {
       titulo: 'Informes Estadísticos',
@@ -220,6 +212,8 @@ export function Dashboard({ session }) {
   const mostrarInformesProductividad = vistaActiva === 'informes-productividad'
   const mostrarInformesIdeas = vistaActiva === 'informes-ideas'
   const mostrarInformesAdministracion = vistaActiva === 'informes-administracion'
+  const mostrarVerTransacciones = vistaActiva === 'ver-transacciones'
+  const mostrarCierreCaja = vistaActiva === 'cierre-caja'
 
   if (loadingEmpresas) {
     return (
@@ -407,6 +401,22 @@ export function Dashboard({ session }) {
             />
           )}
 
+          {mostrarVerTransacciones && (
+            <VerTransacciones
+              session={session}
+              empresaActiva={empresaActiva}
+              rolEmpresa={vinculoEmpresaActiva?.rol}
+            />
+          )}
+
+          {mostrarCierreCaja && (
+            <CierreCaja
+              session={session}
+              empresaActiva={empresaActiva}
+              rolEmpresa={vinculoEmpresaActiva?.rol}
+            />
+          )}
+
           {vistaActiva === 'personalizar' && (
             <VistaPerfilEnConstruccion
               icono="🎨"
@@ -431,7 +441,7 @@ export function Dashboard({ session }) {
             />
           )}
 
-          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && !mostrarInformesProductividad && !mostrarInformesIdeas && !mostrarInformesAdministracion && (
+          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && !mostrarInformesProductividad && !mostrarInformesIdeas && !mostrarInformesAdministracion && !mostrarVerTransacciones && !mostrarCierreCaja && (
             <VistaEnConstruccion
               icono={vistaConstruccion.icono}
               titulo={vistaConstruccion.titulo}
