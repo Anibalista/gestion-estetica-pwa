@@ -8,7 +8,7 @@ import {
   Palette,
   UserCircle
 } from 'lucide-react'
-import logo from '../assets/logo.jpeg'
+import logo from '../assets/logo-2026.png'
 
 export function Header({
   session,

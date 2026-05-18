@@ -1,6 +1,7 @@
 // src/components/Dashboard.jsx
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { InicioDashboard } from './inicio/InicioDashboard'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { Clientes } from './Clientes'
@@ -304,10 +305,11 @@ export function Dashboard({ session }) {
         <main className="flex-1 p-6 overflow-y-auto">
           
           {vistaActiva === 'inicio' && (
-            <VistaInicio
+            <InicioDashboard
               session={session}
               empresaActiva={empresaActiva}
-              vinculoEmpresaActiva={vinculoEmpresaActiva}
+              rolEmpresa={vinculoEmpresaActiva?.rol}
+              setVistaActiva={setVistaActiva}
             />
           )}
 
@@ -475,31 +477,6 @@ export function Dashboard({ session }) {
   )
 }
 
-function VistaInicio({ session, empresaActiva, vinculoEmpresaActiva }) {
-  return (
-    <div className="border-2 border-dashed border-stone-300 rounded-xl h-full flex flex-col items-center justify-center text-stone-400 bg-stone-50/50 p-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-light text-stone-600 mb-2">
-          ¡Hola, {session.user.email.split('@')[0]}!
-        </h2>
-
-        <p className="text-lg font-light">
-          Estás trabajando en:
-        </p>
-
-        <div className="mt-5 inline-flex flex-col items-center bg-white border border-stone-200 rounded-3xl shadow-sm px-8 py-5">
-          <p className="text-2xl font-black text-stone-800">
-            {empresaActiva?.nombre}
-          </p>
-
-          <p className="text-xs uppercase tracking-widest font-black text-teal-600 mt-1">
-            {vinculoEmpresaActiva?.rol || 'Profesional'} · {empresaActiva?.plan || 'Free'}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function VistaEnConstruccion({ icono, titulo, descripcion }) {
   return (
