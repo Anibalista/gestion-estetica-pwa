@@ -15,6 +15,8 @@ import { InformesProductividad } from './turnos/InformesProductividad'
 import { InformesIdeas } from './clientes/InformesIdeas'
 import { InformesAdministracion } from './servicios/InformesAdministracion'
 import { EmpresaSelector } from './EmpresaSelector'
+import { ReportesComparativos } from './finanzas/ReportesComparativos'
+import { InformesEstadisticos } from './finanzas/InformesEstadisticos'
 import { CierreCaja } from './finanzas/CierreCaja'
 import { VerTransacciones } from './finanzas/VerTransacciones'
 import { Building2, Loader2 } from 'lucide-react'
@@ -214,6 +216,8 @@ export function Dashboard({ session }) {
   const mostrarInformesAdministracion = vistaActiva === 'informes-administracion'
   const mostrarVerTransacciones = vistaActiva === 'ver-transacciones'
   const mostrarCierreCaja = vistaActiva === 'cierre-caja'
+  const mostrarReportesComparativos = vistaActiva === 'reportes-comparativos'
+  const mostrarInformesEstadisticos = vistaActiva === 'informes-estadisticos'
 
   if (loadingEmpresas) {
     return (
@@ -417,6 +421,22 @@ export function Dashboard({ session }) {
             />
           )}
 
+          {mostrarReportesComparativos && (
+            <ReportesComparativos
+              session={session}
+              empresaActiva={empresaActiva}
+              rolEmpresa={vinculoEmpresaActiva?.rol}
+            />
+          )}
+
+          {mostrarInformesEstadisticos && (
+            <InformesEstadisticos
+              session={session}
+              empresaActiva={empresaActiva}
+              rolEmpresa={vinculoEmpresaActiva?.rol}
+            />
+          )}
+
           {vistaActiva === 'personalizar' && (
             <VistaPerfilEnConstruccion
               icono="🎨"
@@ -441,7 +461,7 @@ export function Dashboard({ session }) {
             />
           )}
 
-          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && !mostrarInformesProductividad && !mostrarInformesIdeas && !mostrarInformesAdministracion && !mostrarVerTransacciones && !mostrarCierreCaja && (
+          {vistaConstruccion && !mostrarInsumos && !mostrarReportesAlertas && !mostrarInformesProductividad && !mostrarInformesIdeas && !mostrarInformesAdministracion && !mostrarVerTransacciones && !mostrarCierreCaja && !mostrarReportesComparativos && !mostrarInformesEstadisticos && (
             <VistaEnConstruccion
               icono={vistaConstruccion.icono}
               titulo={vistaConstruccion.titulo}
