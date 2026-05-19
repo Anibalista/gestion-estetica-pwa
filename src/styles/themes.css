@@ -1,0 +1,458 @@
+/* src/styles/themes.css */
+
+/* =========================================================
+   ESTETICAPP THEMES
+   Base por variables CSS.
+   Se aplica con:
+   document.documentElement.dataset.theme = "normal|dark|healthy|glitter|glamour"
+========================================================= */
+
+:root,
+[data-theme="normal"] {
+  --app-bg: #f5f5f4;
+  --app-surface: #ffffff;
+  --app-surface-soft: #fafaf9;
+  --app-surface-muted: #f5f5f4;
+
+  --app-text: #292524;
+  --app-text-soft: #57534e;
+  --app-muted: #78716c;
+  --app-muted-light: #a8a29e;
+
+  --app-border: #e7e5e4;
+  --app-border-strong: #d6d3d1;
+
+  --app-primary: #0d9488;
+  --app-primary-hover: #0f766e;
+  --app-primary-soft: #ccfbf1;
+  --app-primary-text: #115e59;
+
+  --app-success: #0d9488;
+  --app-success-soft: #ccfbf1;
+
+  --app-warning: #f59e0b;
+  --app-warning-soft: #fef3c7;
+
+  --app-danger: #ef4444;
+  --app-danger-soft: #fee2e2;
+
+  --app-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+  --app-shadow-soft: 0 4px 14px rgba(15, 23, 42, 0.05);
+
+  --app-logo-filter: none;
+}
+
+[data-theme="dark"] {
+  --app-bg: #0f172a;
+  --app-surface: #1e293b;
+  --app-surface-soft: #253449;
+  --app-surface-muted: #334155;
+
+  --app-text: #f8fafc;
+  --app-text-soft: #e2e8f0;
+  --app-muted: #cbd5e1;
+  --app-muted-light: #94a3b8;
+
+  --app-border: #334155;
+  --app-border-strong: #475569;
+
+  --app-primary: #2dd4bf;
+  --app-primary-hover: #14b8a6;
+  --app-primary-soft: rgba(45, 212, 191, 0.16);
+  --app-primary-text: #99f6e4;
+
+  --app-success: #34d399;
+  --app-success-soft: rgba(52, 211, 153, 0.16);
+
+  --app-warning: #fbbf24;
+  --app-warning-soft: rgba(251, 191, 36, 0.16);
+
+  --app-danger: #f87171;
+  --app-danger-soft: rgba(248, 113, 113, 0.16);
+
+  --app-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  --app-shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.25);
+
+  --app-logo-filter: none;
+}
+
+[data-theme="healthy"] {
+  --app-bg: #f3f7f0;
+  --app-surface: #ffffff;
+  --app-surface-soft: #f7fbf4;
+  --app-surface-muted: #e8f3e4;
+
+  --app-text: #283618;
+  --app-text-soft: #4f5d3b;
+  --app-muted: #6b705c;
+  --app-muted-light: #9ca58b;
+
+  --app-border: #d8e6d1;
+  --app-border-strong: #bdd3b2;
+
+  --app-primary: #7aa95c;
+  --app-primary-hover: #5f8f45;
+  --app-primary-soft: #e3f1dc;
+  --app-primary-text: #3f6b30;
+
+  --app-success: #6a994e;
+  --app-success-soft: #e3f1dc;
+
+  --app-warning: #d4a373;
+  --app-warning-soft: #faedcd;
+
+  --app-danger: #bc6c25;
+  --app-danger-soft: #f8e0c8;
+
+  --app-shadow: 0 10px 25px rgba(63, 107, 48, 0.08);
+  --app-shadow-soft: 0 4px 14px rgba(63, 107, 48, 0.06);
+
+  --app-logo-filter: none;
+}
+
+[data-theme="glitter"] {
+  --app-bg: #fffaf0;
+  --app-surface: #ffffff;
+  --app-surface-soft: #fffdf7;
+  --app-surface-muted: #fff3c4;
+
+  --app-text: #3a2f1b;
+  --app-text-soft: #604f2d;
+  --app-muted: #8a7550;
+  --app-muted-light: #b89f6a;
+
+  --app-border: #f1dfaa;
+  --app-border-strong: #dfc36f;
+
+  --app-primary: #c99700;
+  --app-primary-hover: #a97900;
+  --app-primary-soft: #fff3c4;
+  --app-primary-text: #7a5900;
+
+  --app-success: #7c9c38;
+  --app-success-soft: #eef6d5;
+
+  --app-warning: #d97706;
+  --app-warning-soft: #ffedd5;
+
+  --app-danger: #dc2626;
+  --app-danger-soft: #fee2e2;
+
+  --app-shadow: 0 10px 25px rgba(122, 89, 0, 0.10);
+  --app-shadow-soft: 0 4px 14px rgba(122, 89, 0, 0.07);
+
+  --app-logo-filter: none;
+}
+
+[data-theme="glamour"] {
+  --app-bg: #fff1f5;
+  --app-surface: #ffffff;
+  --app-surface-soft: #fff7fa;
+  --app-surface-muted: #ffe4ec;
+
+  --app-text: #4a2533;
+  --app-text-soft: #754157;
+  --app-muted: #9d6b7d;
+  --app-muted-light: #c58ba2;
+
+  --app-border: #f8cddd;
+  --app-border-strong: #eba9c1;
+
+  --app-primary: #db7093;
+  --app-primary-hover: #c45a7f;
+  --app-primary-soft: #ffe4ec;
+  --app-primary-text: #9d315b;
+
+  --app-success: #7aa95c;
+  --app-success-soft: #e3f1dc;
+
+  --app-warning: #f4a261;
+  --app-warning-soft: #fff1dc;
+
+  --app-danger: #e76f51;
+  --app-danger-soft: #ffe0d8;
+
+  --app-shadow: 0 10px 25px rgba(157, 49, 91, 0.10);
+  --app-shadow-soft: 0 4px 14px rgba(157, 49, 91, 0.07);
+
+  --app-logo-filter: none;
+}
+
+/* =========================================================
+   BASE GENERAL
+========================================================= */
+
+html {
+  background: var(--app-bg);
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--app-bg);
+}
+
+img {
+  filter: var(--app-logo-filter);
+}
+
+/* =========================================================
+   BRIDGE TEMPORAL PARA TAILWIND
+   Esto permite que los temas afecten vistas existentes
+   antes de reemplazar clase por clase.
+========================================================= */
+
+/* Fondos principales */
+.bg-stone-100,
+.bg-stone-50,
+.bg-stone-50\/50 {
+  background-color: var(--app-bg) !important;
+}
+
+.bg-white {
+  background-color: var(--app-surface) !important;
+}
+
+.bg-stone-200 {
+  background-color: var(--app-surface-muted) !important;
+}
+
+.bg-stone-100 {
+  background-color: var(--app-surface-soft) !important;
+}
+
+/* Fondos suaves de marca */
+.bg-teal-50,
+.bg-teal-100 {
+  background-color: var(--app-primary-soft) !important;
+}
+
+.bg-teal-600,
+.bg-teal-700 {
+  background-color: var(--app-primary) !important;
+}
+
+.hover\:bg-teal-700:hover,
+.hover\:bg-teal-600:hover {
+  background-color: var(--app-primary-hover) !important;
+}
+
+.hover\:bg-teal-100:hover,
+.hover\:bg-teal-50:hover,
+.hover\:bg-teal-50\/60:hover {
+  background-color: var(--app-primary-soft) !important;
+}
+
+/* Textos */
+.text-stone-900,
+.text-stone-800,
+.text-stone-700 {
+  color: var(--app-text) !important;
+}
+
+.text-stone-600,
+.text-stone-500 {
+  color: var(--app-text-soft) !important;
+}
+
+.text-stone-400,
+.text-stone-300 {
+  color: var(--app-muted-light) !important;
+}
+
+.text-teal-800,
+.text-teal-700,
+.text-teal-600 {
+  color: var(--app-primary-text) !important;
+}
+
+/* Bordes */
+.border-stone-100,
+.border-stone-200,
+.border-stone-300 {
+  border-color: var(--app-border) !important;
+}
+
+.border-teal-100,
+.border-teal-200,
+.border-teal-300 {
+  border-color: var(--app-border-strong) !important;
+}
+
+/* Inputs */
+input,
+select,
+textarea {
+  background-color: var(--app-surface) !important;
+  color: var(--app-text) !important;
+  border-color: var(--app-border) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--app-muted-light) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--app-primary) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-primary) 30%, transparent) !important;
+}
+
+/* Botones primarios existentes */
+button.bg-teal-600,
+button.bg-teal-700,
+.bg-teal-600.text-white,
+.bg-teal-700.text-white {
+  background-color: var(--app-primary) !important;
+  color: #ffffff !important;
+}
+
+button.bg-teal-600:hover,
+button.bg-teal-700:hover {
+  background-color: var(--app-primary-hover) !important;
+}
+
+/* Cards / tablas / modales */
+.shadow-sm {
+  box-shadow: var(--app-shadow-soft) !important;
+}
+
+.shadow-lg,
+.shadow-xl,
+.shadow-2xl {
+  box-shadow: var(--app-shadow) !important;
+}
+
+thead.bg-stone-50,
+tbody tr.hover\:bg-stone-50:hover,
+.hover\:bg-stone-50:hover {
+  background-color: var(--app-surface-soft) !important;
+}
+
+.divide-stone-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--app-border) !important;
+}
+
+/* Estados semánticos: se mantienen reconocibles */
+.bg-red-50 {
+  background-color: var(--app-danger-soft) !important;
+}
+
+.text-red-500,
+.text-red-600,
+.text-red-700 {
+  color: var(--app-danger) !important;
+}
+
+.border-red-100,
+.border-red-200 {
+  border-color: color-mix(in srgb, var(--app-danger) 35%, transparent) !important;
+}
+
+.bg-yellow-100,
+.bg-amber-50,
+.bg-amber-100 {
+  background-color: var(--app-warning-soft) !important;
+}
+
+.text-yellow-700,
+.text-yellow-800,
+.text-amber-600,
+.text-amber-700,
+.text-amber-800 {
+  color: var(--app-warning) !important;
+}
+
+.border-amber-100,
+.border-yellow-100 {
+  border-color: color-mix(in srgb, var(--app-warning) 35%, transparent) !important;
+}
+
+.bg-green-50,
+.bg-green-100 {
+  background-color: var(--app-success-soft) !important;
+}
+
+.text-green-600,
+.text-green-700,
+.text-green-800 {
+  color: var(--app-success) !important;
+}
+
+/* Dark específico para legibilidad */
+[data-theme="dark"] .text-white {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.65) !important;
+}
+
+[data-theme="dark"] table {
+  color: var(--app-text-soft);
+}
+
+[data-theme="dark"] option {
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+/* Glitter: pequeño brillo sutil en cards importantes */
+[data-theme="glitter"] .rounded-2xl,
+[data-theme="glitter"] .rounded-3xl {
+  box-shadow: var(--app-shadow-soft);
+}
+
+/* Glamour: suaviza un poco botones y cards */
+[data-theme="glamour"] button,
+[data-theme="glamour"] .rounded-2xl,
+[data-theme="glamour"] .rounded-3xl {
+  letter-spacing: 0.005em;
+}
+
+/* Helpers futuros para cuando adaptemos vistas */
+.app-bg {
+  background-color: var(--app-bg);
+}
+
+.app-surface {
+  background-color: var(--app-surface);
+}
+
+.app-surface-soft {
+  background-color: var(--app-surface-soft);
+}
+
+.app-text {
+  color: var(--app-text);
+}
+
+.app-muted {
+  color: var(--app-muted);
+}
+
+.app-border {
+  border-color: var(--app-border);
+}
+
+.app-primary {
+  color: var(--app-primary);
+}
+
+.app-primary-bg {
+  background-color: var(--app-primary);
+  color: #ffffff;
+}
+
+.app-primary-bg:hover {
+  background-color: var(--app-primary-hover);
+}
