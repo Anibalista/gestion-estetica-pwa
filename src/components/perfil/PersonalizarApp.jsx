@@ -331,6 +331,8 @@ export function PersonalizarApp({
       setArchivoAvatar(null)
       setVistaPreviaAvatar('')
       setMetodoImagenAvatar(payload.url_avatar ? 'url' : 'archivo')
+      
+      window.dispatchEvent(new CustomEvent('preferencias-ui-actualizadas'))
 
       setFeedback({
         tipo: 'exito',
