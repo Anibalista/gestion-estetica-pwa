@@ -235,9 +235,13 @@ export function MiEmpresa({
           telefono_contacto,
           created_at
         `)
-        .single()
+        .maybeSingle()
 
       if (error) throw error
+
+      if (!data) {
+        throw new Error('No se pudo actualizar la empresa. Verificá que tu rol tenga permiso de Dueño o Administrador y que las policies RLS permitan actualizar empresas.')
+      }
 
       setFormData({
         id: data.id,
