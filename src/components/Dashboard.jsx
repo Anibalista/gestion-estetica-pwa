@@ -22,6 +22,7 @@ import { CierreCaja } from './finanzas/CierreCaja'
 import { VerTransacciones } from './finanzas/VerTransacciones'
 import { Building2, Loader2 } from 'lucide-react'
 import { PersonalizarApp } from './perfil/PersonalizarApp'
+import { MiEmpresa } from './perfil/MiEmpresa'
 import { applyUIPreferences } from '../utils/themeManager'
 
 export function Dashboard({ session }) {
@@ -183,6 +184,10 @@ export function Dashboard({ session }) {
     } finally {
       setLoadingEmpresas(false)
     }
+  }
+
+  const manejarEmpresaActualizada = async () => {
+    await cargarEmpresasUsuario()
   }
 
   const aplicarEmpresaActiva = async (vinculo, guardarEnBD = false) => {
@@ -481,10 +486,11 @@ export function Dashboard({ session }) {
           )}
 
           {vistaActiva === 'empresa' && (
-            <VistaPerfilEnConstruccion
-              icono="🏢"
-              titulo="Mi Empresa"
-              descripcion="Aquí cargaremos el CUIT, dirección comercial, redes sociales y nombre legal."
+            <MiEmpresa
+              session={session}
+              empresaActiva={empresaActiva}
+              rolEmpresa={vinculoEmpresaActiva?.rol}
+              onEmpresaActualizada={manejarEmpresaActualizada}
             />
           )}
 

@@ -21,6 +21,7 @@ export function Header({
   onAbrirSelectorEmpresa
 }) {
   const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false)
+  const [logoEmpresaRoto, setLogoEmpresaRoto] = useState(false)
   const [preferenciasPerfil, setPreferenciasPerfil] = useState({
     avatar_tipo: 'iniciales',
     url_avatar: '',
@@ -34,6 +35,10 @@ export function Header({
       cargarPreferenciasPerfil()
     }
   }, [session?.user?.id])
+
+  useEffect(() => {
+    setLogoEmpresaRoto(false)
+  }, [empresaActiva?.id, empresaActiva?.url_logo])
 
   useEffect(() => {
     const actualizarPreferencias = () => {
@@ -126,9 +131,10 @@ export function Header({
           title="Cambiar empresa activa"
         >
           <img
-            src={empresaActiva?.url_logo || logo}
+            src={!logoEmpresaRoto && empresaActiva?.url_logo ? empresaActiva.url_logo : logo}
             alt={empresaActiva?.nombre || 'Logo'}
             className="h-24 w-auto object-contain"
+            onError={() => setLogoEmpresaRoto(true)}
           />
 
           <div className="hidden md:flex flex-col items-start leading-tight">
