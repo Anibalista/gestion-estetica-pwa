@@ -23,6 +23,7 @@ import { VerTransacciones } from './finanzas/VerTransacciones'
 import { Building2, Loader2 } from 'lucide-react'
 import { PersonalizarApp } from './perfil/PersonalizarApp'
 import { MiEmpresa } from './perfil/MiEmpresa'
+import { SugerenciasBugs } from './perfil/SugerenciasBugs'
 import { applyUIPreferences } from '../utils/themeManager'
 
 export function Dashboard({ session }) {
@@ -495,10 +496,9 @@ export function Dashboard({ session }) {
           )}
 
           {vistaActiva === 'mejoras' && (
-            <VistaPerfilEnConstruccion
-              icono="💡"
-              titulo="Buzón de Mejoras"
-              descripcion="Un formulario simple para que reportes errores o pidas nuevas funciones."
+            <SugerenciasBugs
+              session={session}
+              empresaActiva={empresaActiva}
             />
           )}
 
