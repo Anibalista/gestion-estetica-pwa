@@ -21,6 +21,8 @@ import { InformesEstadisticos } from './finanzas/InformesEstadisticos'
 import { CierreCaja } from './finanzas/CierreCaja'
 import { VerTransacciones } from './finanzas/VerTransacciones'
 import { Building2, Loader2 } from 'lucide-react'
+import { PersonalizarApp } from './perfil/PersonalizarApp'
+import { applyUIPreferences } from '../utils/themeManager'
 
 export function Dashboard({ session }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -39,6 +41,38 @@ export function Dashboard({ session }) {
       cargarEmpresasUsuario()
     }
   }, [session?.user?.id])
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      cargarPreferenciasUI()
+    }
+  }, [session?.user?.id])
+
+  const cargarPreferenciasUI = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('preferencias_ui_profesional')
+        .select(`
+          tema,
+          tamano_fuente,
+          densidad_ui,
+          avatar_tipo,
+          url_avatar,
+          color_primario,
+          color_secundario
+        `)
+        .eq('profesional_id', session.user.id)
+        .maybeSingle()
+
+      if (error) throw error
+
+      if (data) {
+        applyUIPreferences(data)
+      }
+    } catch (error) {
+      console.error('No se pudieron cargar las preferencias UI:', error.message)
+    }
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -440,10 +474,9 @@ export function Dashboard({ session }) {
           )}
 
           {vistaActiva === 'personalizar' && (
-            <VistaPerfilEnConstruccion
-              icono="🎨"
-              titulo="Personalizar App"
-              descripcion="Aquí agregaremos la opción para cambiar colores, logos y el diseño de la PWA."
+            <PersonalizarApp
+              session={session}
+              empresaActiva={empresaActiva}
             />
           )}
 

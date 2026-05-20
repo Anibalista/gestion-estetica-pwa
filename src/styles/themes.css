@@ -456,3 +456,52 @@ tbody tr.hover\:bg-stone-50:hover,
 .app-primary-bg:hover {
   background-color: var(--app-primary-hover);
 }
+
+/* =========================================================
+   PREFERENCIAS UI
+   Tamaño de fuente y densidad visual
+========================================================= */
+
+:root {
+  --app-font-scale: 1;
+}
+
+[data-font-size="chico"] {
+  --app-font-scale: 0.94;
+}
+
+[data-font-size="mediano"] {
+  --app-font-scale: 1;
+}
+
+[data-font-size="grande"] {
+  --app-font-scale: 1.08;
+}
+
+body {
+  font-size: calc(16px * var(--app-font-scale));
+}
+
+[data-density-ui="compacta"] .p-8 {
+  padding: 1.5rem !important;
+}
+
+[data-density-ui="compacta"] .p-6 {
+  padding: 1.125rem !important;
+}
+
+[data-density-ui="compacta"] .p-5 {
+  padding: 1rem !important;
+}
+
+[data-density-ui="compacta"] .gap-6 {
+  gap: 1rem !important;
+}
+
+[data-density-ui="compacta"] .gap-5 {
+  gap: 0.875rem !important;
+}
+
+[data-density-ui="compacta"] .rounded-3xl {
+  border-radius: 1.25rem !important;
+}

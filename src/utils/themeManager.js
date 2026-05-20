@@ -87,6 +87,49 @@ export function applyTheme(themeId, options = {}) {
   return safeTheme
 }
 
+export function applyFontSize(size = 'mediano') {
+  const safeSize = ['chico', 'mediano', 'grande'].includes(size)
+    ? size
+    : 'mediano'
+
+  document.documentElement.dataset.fontSize = safeSize
+
+  return safeSize
+}
+
+export function applyDensity(density = 'comoda') {
+  const safeDensity = ['comoda', 'compacta'].includes(density)
+    ? density
+    : 'comoda'
+
+  document.documentElement.dataset.densityUi = safeDensity
+
+  return safeDensity
+}
+
+export function applyUIPreferences(preferences = {}, options = {}) {
+  const { persistTheme = false } = options
+
+  const selectedTheme = preferences.tema || getBrowserPreferredTheme()
+
+  applyTheme(selectedTheme, {
+    persist: persistTheme && Boolean(preferences.tema)
+  })
+
+  applyFontSize(preferences.tamano_fuente || 'mediano')
+  applyDensity(preferences.densidad_ui || 'comoda')
+
+  if (!preferences.tema) {
+    clearSavedTheme()
+  }
+
+  return {
+    tema: selectedTheme,
+    tamano_fuente: preferences.tamano_fuente || 'mediano',
+    densidad_ui: preferences.densidad_ui || 'comoda'
+  }
+}
+
 export function saveTheme(themeId) {
   if (!isValidTheme(themeId)) {
     return
@@ -111,6 +154,8 @@ export function initTheme() {
   const initialTheme = getInitialTheme()
 
   applyTheme(initialTheme, { persist: false })
+  applyFontSize('mediano')
+  applyDensity('comoda')
 
   return initialTheme
 }
