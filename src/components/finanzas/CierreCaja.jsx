@@ -15,6 +15,9 @@ import {
   Wallet
 } from 'lucide-react'
 
+const ROLES_CIERRAN_HOY = ['Dueño', 'Administrador', 'Recepcionista']
+const ROLES_CIERRAN_HISTORICO = ['Dueño', 'Administrador']
+
 export function CierreCaja({
   session,
   empresaActiva,
@@ -35,9 +38,16 @@ export function CierreCaja({
   const [montoContadoMercadoPago, setMontoContadoMercadoPago] = useState('')
   const [observaciones, setObservaciones] = useState('')
 
-  const puedeCerrarCaja = ['Dueño', 'Administrador', 'Recepcionista'].includes(rolEmpresa)
   const esHoy = fechaConsulta === obtenerFechaInput(new Date())
+  const esHistorico = !esHoy
   const hayMovimientosPendientes = movimientosPendientes.length > 0
+
+  const puedeCerrarCajaHoy = ROLES_CIERRAN_HOY.includes(rolEmpresa)
+  const puedeCerrarCajaHistorica = ROLES_CIERRAN_HISTORICO.includes(rolEmpresa)
+
+  const puedeCerrarFechaSeleccionada = esHoy
+    ? puedeCerrarCajaHoy
+    : puedeCerrarCajaHistorica
 
   useEffect(() => {
     if (session?.user?.id && empresaActiva?.id) {
@@ -55,10 +65,10 @@ export function CierreCaja({
         movimientosPendientesResponse,
         cierreResponse,
         cierresPreviosResponse
-        ] = await Promise.all([
+      ] = await Promise.all([
         supabase
-            .from('caja_movimientos')
-            .select(`
+          .from('caja_movimientos')
+          .select(`
             id,
             empresa_id,
             profesional_id,
@@ -73,17 +83,17 @@ export function CierreCaja({
             created_at,
             cierre_diario_id,
             profesional:profesionales!caja_movimientos_profesional_id_fkey (
-                id,
-                nombre_negocio
+              id,
+              nombre_negocio
             )
-            `)
-            .eq('empresa_id', empresaActiva.id)
-            .eq('fecha_operativa', fechaConsulta)
-            .order('created_at', { ascending: false }),
+          `)
+          .eq('empresa_id', empresaActiva.id)
+          .eq('fecha_operativa', fechaConsulta)
+          .order('created_at', { ascending: false }),
 
         supabase
-            .from('caja_movimientos')
-            .select(`
+          .from('caja_movimientos')
+          .select(`
             id,
             empresa_id,
             profesional_id,
@@ -98,18 +108,18 @@ export function CierreCaja({
             created_at,
             cierre_diario_id,
             profesional:profesionales!caja_movimientos_profesional_id_fkey (
-                id,
-                nombre_negocio
+              id,
+              nombre_negocio
             )
-            `)
-            .eq('empresa_id', empresaActiva.id)
-            .eq('fecha_operativa', fechaConsulta)
-            .is('cierre_diario_id', null)
-            .order('created_at', { ascending: false }),
+          `)
+          .eq('empresa_id', empresaActiva.id)
+          .eq('fecha_operativa', fechaConsulta)
+          .is('cierre_diario_id', null)
+          .order('created_at', { ascending: false }),
 
         supabase
-            .from('cierres_diarios')
-            .select(`
+          .from('cierres_diarios')
+          .select(`
             id,
             empresa_id,
             fecha_operativa,
@@ -121,17 +131,17 @@ export function CierreCaja({
             observaciones_generales,
             fecha_cierre,
             cerrador:profesionales!cierres_diarios_cerrado_por_fkey (
-                id,
-                nombre_negocio
+              id,
+              nombre_negocio
             )
-            `)
-            .eq('empresa_id', empresaActiva.id)
-            .eq('fecha_operativa', fechaConsulta)
-            .order('numero_cierre', { ascending: false }),
+          `)
+          .eq('empresa_id', empresaActiva.id)
+          .eq('fecha_operativa', fechaConsulta)
+          .order('numero_cierre', { ascending: false }),
 
         supabase
-            .from('cierres_diarios')
-            .select(`
+          .from('cierres_diarios')
+          .select(`
             id,
             empresa_id,
             fecha_operativa,
@@ -141,29 +151,29 @@ export function CierreCaja({
             diferencia_total,
             fecha_cierre,
             cerrador:profesionales!cierres_diarios_cerrado_por_fkey (
-                id,
-                nombre_negocio
+              id,
+              nombre_negocio
             )
-            `)
-            .eq('empresa_id', empresaActiva.id)
-            .order('fecha_operativa', { ascending: false })
-            .order('numero_cierre', { ascending: false })
-            .limit(10)
-        ])
+          `)
+          .eq('empresa_id', empresaActiva.id)
+          .order('fecha_operativa', { ascending: false })
+          .order('numero_cierre', { ascending: false })
+          .limit(10)
+      ])
 
       if (movimientosResponse.error) throw movimientosResponse.error
       if (movimientosPendientesResponse.error) throw movimientosPendientesResponse.error
       if (cierreResponse.error) throw cierreResponse.error
       if (cierresPreviosResponse.error) throw cierresPreviosResponse.error
-  
+
       const cierresDelDia = cierreResponse.data || []
       const ultimoCierre = cierresDelDia[0] || null
-  
+
       setMovimientos(movimientosResponse.data || [])
       setMovimientosPendientes(movimientosPendientesResponse.data || [])
       setCierreExistente(ultimoCierre)
       setCierresPrevios(cierresPreviosResponse.data || [])
-  
+
       if (ultimoCierre?.id) {
         const { data: detalles, error: errorDetalles } = await supabase
           .from('cierres_caja')
@@ -186,7 +196,7 @@ export function CierreCaja({
   }
 
   const resumen = useMemo(() => {
-  return movimientosPendientes.reduce((acc, item) => {
+    return movimientosPendientes.reduce((acc, item) => {
       const monto = Number(item.monto || 0)
 
       if (item.tipo_caja === 'Efectivo') {
@@ -224,16 +234,21 @@ export function CierreCaja({
     setFechaConsulta(obtenerFechaInput(new Date()))
   }
 
+  const limpiarFormularioCierre = () => {
+    setMontoContadoEfectivo('')
+    setMontoContadoMercadoPago('')
+    setObservaciones('')
+  }
+
   const cerrarCaja = async (e) => {
     e.preventDefault()
 
-    if (!esHoy) {
-      alert('Solo se puede cerrar la caja del día actual.')
-      return
-    }
-
-    if (!puedeCerrarCaja) {
-      alert('Tu rol no tiene permiso para cerrar caja.')
+    if (!puedeCerrarFechaSeleccionada) {
+      alert(
+        esHoy
+          ? 'Tu rol no tiene permiso para cerrar caja.'
+          : 'Solo Dueño o Administrador pueden cerrar cajas de fechas anteriores.'
+      )
       return
     }
 
@@ -242,18 +257,23 @@ export function CierreCaja({
       return
     }
 
-    if (cierreExistente) {
-      alert('La caja del día ya fue cerrada.')
-      return
-    }
-
     if (!hayMovimientosPendientes) {
       alert('No hay movimientos pendientes de cierre para esta fecha.')
       return
     }
 
+    const tipoCierre = esHoy
+      ? 'caja del día actual'
+      : `caja histórica del ${formatearFecha(fechaConsulta)}`
+
     const confirmar = window.confirm(
-      `Vas a cerrar la caja del día.\n\nSistema: ${formatearDinero(resumen.total)}\nContado: ${formatearDinero(totalContado)}\nDiferencia: ${formatearDinero(diferenciaTotal)}\n\n¿Confirmás el cierre?`
+      `Vas a cerrar la ${tipoCierre}.\n\n` +
+      `Fecha operativa: ${formatearFecha(fechaConsulta)}\n` +
+      `Fecha/hora de registro del cierre: ahora\n\n` +
+      `Sistema: ${formatearDinero(resumen.total)}\n` +
+      `Contado: ${formatearDinero(totalContado)}\n` +
+      `Diferencia: ${formatearDinero(diferenciaTotal)}\n\n` +
+      `Las transacciones conservarán su fecha original. ¿Confirmás el cierre?`
     )
 
     if (!confirmar) return
@@ -273,10 +293,7 @@ export function CierreCaja({
 
       if (error) throw error
 
-      setMontoContadoEfectivo('')
-      setMontoContadoMercadoPago('')
-      setObservaciones('')
-
+      limpiarFormularioCierre()
       await cargarDatos()
     } catch (error) {
       console.error('Error cerrando caja:', error)
@@ -331,209 +348,152 @@ export function CierreCaja({
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         <div className="xl:col-span-3 flex flex-col gap-6">
-          {cierreExistente && (
-          <>
-            <CierreRealizado
-              cierre={cierreExistente}
-              detalles={detallesCierre}
+          {esHistorico && (
+            <AvisoCierreHistorico
+              fechaConsulta={fechaConsulta}
+              rolEmpresa={rolEmpresa}
+              puedeCerrarCajaHistorica={puedeCerrarCajaHistorica}
+              hayMovimientosPendientes={hayMovimientosPendientes}
             />
+          )}
 
-            {hayMovimientosPendientes && esHoy && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 text-amber-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  <h3 className="font-black text-amber-800">
-                    Hay movimientos pendientes después del último cierre
+          {cierreExistente && (
+            <>
+              <CierreRealizado
+                cierre={cierreExistente}
+                detalles={detallesCierre}
+              />
+
+              {hayMovimientosPendientes && (
+                <AvisoMovimientosPendientes
+                  movimientosPendientes={movimientosPendientes}
+                  resumen={resumen}
+                  esHoy={esHoy}
+                />
+              )}
+
+              {!hayMovimientosPendientes && esHoy && (
+                <div className="bg-teal-50 border border-teal-100 rounded-2xl p-5 text-teal-800">
+                  <h3 className="font-black">
+                    No hay movimientos pendientes
                   </h3>
 
-                  <p className="text-sm text-amber-700 mt-1">
-                    Se detectaron {movimientosPendientes.length} movimiento(s) que todavía no están incluidos en ningún cierre.
-                    Podés hacer un cierre adicional para dejar la caja al día.
+                  <p className="text-sm mt-1">
+                    La caja del día ya fue cerrada y no se registraron movimientos nuevos después del cierre.
                   </p>
                 </div>
+              )}
 
-                <div className="bg-white border border-amber-100 rounded-2xl px-5 py-3 text-right shrink-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-                    Pendiente sistema
-                  </p>
+              <TablaMovimientos
+                movimientos={movimientos}
+                titulo="Todos los movimientos registrados en esta fecha"
+              />
+            </>
+          )}
 
-                  <p className="text-xl font-black text-stone-800">
-                    {formatearDinero(resumen.total)}
+          {!cierreExistente && !esHoy && (
+            <>
+              <SinCierreHistorico
+                fechaConsulta={fechaConsulta}
+                resumen={resumen}
+                puedeCerrarCajaHistorica={puedeCerrarCajaHistorica}
+                hayMovimientosPendientes={hayMovimientosPendientes}
+              />
+
+              {!hayMovimientosPendientes && (
+                <>
+                  <ResumenCaja resumen={resumen} />
+
+                  <TablaMovimientos
+                    movimientos={movimientos}
+                    titulo="Movimientos registrados en esta fecha"
+                  />
+                </>
+              )}
+            </>
+          )}
+
+          {hayMovimientosPendientes && puedeCerrarFechaSeleccionada && (
+            <>
+              <ResumenCaja resumen={resumen} />
+
+              <FormularioCierre
+                cerrarCaja={cerrarCaja}
+                cerrando={cerrando}
+                cierreExistente={cierreExistente}
+                esHoy={esHoy}
+                fechaConsulta={fechaConsulta}
+                resumen={resumen}
+                montoContadoEfectivo={montoContadoEfectivo}
+                setMontoContadoEfectivo={setMontoContadoEfectivo}
+                montoContadoMercadoPago={montoContadoMercadoPago}
+                setMontoContadoMercadoPago={setMontoContadoMercadoPago}
+                diferenciaEfectivo={diferenciaEfectivo}
+                diferenciaMercadoPago={diferenciaMercadoPago}
+                totalContado={totalContado}
+                diferenciaTotal={diferenciaTotal}
+                observaciones={observaciones}
+                setObservaciones={setObservaciones}
+                hayMovimientosPendientes={hayMovimientosPendientes}
+              />
+
+              <TablaMovimientos
+                movimientos={movimientosPendientes}
+                titulo={
+                  cierreExistente
+                    ? 'Movimientos pendientes de cierre'
+                    : esHoy
+                      ? 'Movimientos incluidos en el cierre'
+                      : 'Movimientos históricos pendientes de cierre'
+                }
+              />
+            </>
+          )}
+
+          {hayMovimientosPendientes && !puedeCerrarFechaSeleccionada && (
+            <>
+              <ResumenCaja resumen={resumen} />
+
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 text-amber-800 flex gap-3">
+                <LockKeyhole className="w-5 h-5 shrink-0 mt-0.5" />
+
+                <div>
+                  <h3 className="font-black">
+                    Hay movimientos pendientes, pero tu rol no puede cerrarlos
+                  </h3>
+
+                  <p className="text-sm mt-1">
+                    {esHoy
+                      ? 'Solicitá a un usuario con permiso de cierre de caja.'
+                      : 'Las cajas históricas solo pueden ser cerradas por Dueño o Administrador.'}
                   </p>
                 </div>
               </div>
-            )}
 
-            {!hayMovimientosPendientes && esHoy && (
-              <div className="bg-teal-50 border border-teal-100 rounded-2xl p-5 text-teal-800">
-                <h3 className="font-black">
-                  No hay movimientos pendientes
+              <TablaMovimientos
+                movimientos={movimientosPendientes}
+                titulo="Movimientos pendientes de cierre"
+              />
+            </>
+          )}
+
+          {esHoy && !hayMovimientosPendientes && !cierreExistente && (
+            <>
+              <ResumenCaja resumen={resumen} />
+
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-8 text-center">
+                <FileCheck2 className="w-14 h-14 mx-auto text-stone-300 mb-4" />
+
+                <h3 className="text-xl font-light text-stone-800 mb-2">
+                  Sin movimientos pendientes
                 </h3>
 
-                <p className="text-sm mt-1">
-                  La caja del día ya fue cerrada y no se registraron movimientos nuevos después del cierre.
+                <p className="text-stone-500">
+                  Todavía no hay movimientos para cerrar en la fecha seleccionada.
                 </p>
               </div>
-            )}
-
-            <TablaMovimientos
-              movimientos={movimientos}
-              titulo="Todos los movimientos registrados en esta fecha"
-            />
-          </>
-        )}
-
-        {!cierreExistente && !esHoy && (
-          <>
-            <SinCierreHistorico
-              fechaConsulta={fechaConsulta}
-              resumen={resumen}
-            />
-
-            <ResumenCaja resumen={resumen} />
-
-            <TablaMovimientos
-              movimientos={movimientos}
-              titulo="Movimientos registrados en esta fecha"
-            />
-          </>
-        )}
-
-        {esHoy && hayMovimientosPendientes && (
-          <>
-            <ResumenCaja resumen={resumen} />
-
-            <form
-              onSubmit={cerrarCaja}
-              className="grid grid-cols-1 xl:grid-cols-3 gap-6"
-            >
-              <section className="xl:col-span-2 bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-teal-50 text-teal-700 rounded-xl p-2">
-                    <FileCheck2 className="w-6 h-6" />
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-light text-stone-800">
-                      {cierreExistente ? 'Conteo de movimientos pendientes' : 'Conteo del día'}
-                    </h3>
-
-                    <p className="text-xs text-stone-400">
-                      {cierreExistente
-                        ? 'Cargá lo contado únicamente para los movimientos posteriores al último cierre.'
-                        : 'Cargá lo contado por la profesional o administradora.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <Campo label="Efectivo contado">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={montoContadoEfectivo}
-                      onChange={(e) => setMontoContadoEfectivo(e.target.value)}
-                      className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-lg font-black text-stone-800"
-                      placeholder="0.00"
-                    />
-                  </Campo>
-
-                  <Campo label="Mercado Pago contado">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={montoContadoMercadoPago}
-                      onChange={(e) => setMontoContadoMercadoPago(e.target.value)}
-                      className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-lg font-black text-stone-800"
-                      placeholder="0.00"
-                    />
-                  </Campo>
-
-                  <DiferenciaBox
-                    titulo="Diferencia efectivo"
-                    sistema={resumen.efectivo}
-                    contado={Number(montoContadoEfectivo || 0)}
-                    diferencia={diferenciaEfectivo}
-                  />
-
-                  <DiferenciaBox
-                    titulo="Diferencia Mercado Pago"
-                    sistema={resumen.mercadoPago}
-                    contado={Number(montoContadoMercadoPago || 0)}
-                    diferencia={diferenciaMercadoPago}
-                  />
-
-                  <div className="md:col-span-2">
-                    <Campo label="Observaciones generales">
-                      <textarea
-                        value={observaciones}
-                        onChange={(e) => setObservaciones(e.target.value)}
-                        rows={4}
-                        placeholder="Ej: cierre normal, diferencia por vuelto, transferencia pendiente..."
-                        className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-                      />
-                    </Campo>
-                  </div>
-                </div>
-              </section>
-
-              <aside className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 h-fit">
-                <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-4">
-                  Resumen final
-                </h3>
-
-                <div className="space-y-3">
-                  <ResumenLinea label="Sistema" valor={resumen.total} />
-                  <ResumenLinea label="Contado" valor={totalContado} />
-                  <ResumenLinea label="Diferencia" valor={diferenciaTotal} destacar />
-                </div>
-
-                {!puedeCerrarCaja && (
-                  <div className="mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-sm flex gap-2">
-                    <LockKeyhole className="w-5 h-5 shrink-0" />
-                    Tu rol actual no permite cerrar caja.
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={cerrando || !puedeCerrarCaja || !hayMovimientosPendientes}
-                  className="w-full mt-6 px-5 py-3 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 disabled:bg-stone-300 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Save className="w-5 h-5" />
-
-                  {cerrando
-                    ? 'Cerrando...'
-                    : cierreExistente
-                      ? 'Cerrar movimientos pendientes'
-                      : 'Cerrar caja del día'}
-                </button>
-              </aside>
-            </form>
-
-            <TablaMovimientos
-              movimientos={movimientosPendientes}
-              titulo={cierreExistente ? 'Movimientos pendientes de cierre' : 'Movimientos incluidos en el cierre'}
-            />
-          </>
-        )}
-
-        {esHoy && !hayMovimientosPendientes && !cierreExistente && (
-          <>
-            <ResumenCaja resumen={resumen} />
-
-            <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-8 text-center">
-              <FileCheck2 className="w-14 h-14 mx-auto text-stone-300 mb-4" />
-
-              <h3 className="text-xl font-light text-stone-800 mb-2">
-                Sin movimientos pendientes
-              </h3>
-
-              <p className="text-stone-500">
-                Todavía no hay movimientos para cerrar en la fecha seleccionada.
-              </p>
-            </div>
-          </>
-        )}
+            </>
+          )}
         </div>
 
         <aside className="xl:col-span-1">
@@ -545,6 +505,148 @@ export function CierreCaja({
         </aside>
       </div>
     </div>
+  )
+}
+
+function FormularioCierre({
+  cerrarCaja,
+  cerrando,
+  cierreExistente,
+  esHoy,
+  fechaConsulta,
+  resumen,
+  montoContadoEfectivo,
+  setMontoContadoEfectivo,
+  montoContadoMercadoPago,
+  setMontoContadoMercadoPago,
+  diferenciaEfectivo,
+  diferenciaMercadoPago,
+  totalContado,
+  diferenciaTotal,
+  observaciones,
+  setObservaciones,
+  hayMovimientosPendientes
+}) {
+  return (
+    <form
+      onSubmit={cerrarCaja}
+      className="grid grid-cols-1 xl:grid-cols-3 gap-6"
+    >
+      <section className="xl:col-span-2 bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-teal-50 text-teal-700 rounded-xl p-2">
+            <FileCheck2 className="w-6 h-6" />
+          </div>
+
+          <div>
+            <h3 className="text-lg font-light text-stone-800">
+              {esHoy
+                ? cierreExistente
+                  ? 'Conteo de movimientos pendientes'
+                  : 'Conteo del día'
+                : 'Conteo de caja histórica pendiente'}
+            </h3>
+
+            <p className="text-xs text-stone-400">
+              {esHoy
+                ? cierreExistente
+                  ? 'Cargá lo contado únicamente para los movimientos posteriores al último cierre.'
+                  : 'Cargá lo contado por la profesional o administradora.'
+                : `Estás cerrando movimientos pendientes del ${formatearFecha(fechaConsulta)}. La fecha operativa no se moverá al día actual.`}
+            </p>
+          </div>
+        </div>
+
+        {!esHoy && (
+          <div className="mb-5 bg-amber-50 border border-amber-100 rounded-2xl p-4 text-amber-800 text-sm">
+            <strong>Atención:</strong> este cierre se registrará ahora, pero corresponderá operativamente al día{' '}
+            <strong>{formatearFecha(fechaConsulta)}</strong>.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Campo label="Efectivo contado">
+            <input
+              type="number"
+              step="0.01"
+              value={montoContadoEfectivo}
+              onChange={(e) => setMontoContadoEfectivo(e.target.value)}
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-lg font-black text-stone-800"
+              placeholder="0.00"
+            />
+          </Campo>
+
+          <Campo label="Mercado Pago contado">
+            <input
+              type="number"
+              step="0.01"
+              value={montoContadoMercadoPago}
+              onChange={(e) => setMontoContadoMercadoPago(e.target.value)}
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 text-lg font-black text-stone-800"
+              placeholder="0.00"
+            />
+          </Campo>
+
+          <DiferenciaBox
+            titulo="Diferencia efectivo"
+            sistema={resumen.efectivo}
+            contado={Number(montoContadoEfectivo || 0)}
+            diferencia={diferenciaEfectivo}
+          />
+
+          <DiferenciaBox
+            titulo="Diferencia Mercado Pago"
+            sistema={resumen.mercadoPago}
+            contado={Number(montoContadoMercadoPago || 0)}
+            diferencia={diferenciaMercadoPago}
+          />
+
+          <div className="md:col-span-2">
+            <Campo label="Observaciones generales">
+              <textarea
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                rows={4}
+                placeholder={
+                  esHoy
+                    ? 'Ej: cierre normal, diferencia por vuelto, transferencia pendiente...'
+                    : 'Ej: cierre histórico porque la caja quedó pendiente del día anterior...'
+                }
+                className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+              />
+            </Campo>
+          </div>
+        </div>
+      </section>
+
+      <aside className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 h-fit">
+        <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-4">
+          Resumen final
+        </h3>
+
+        <div className="space-y-3">
+          <ResumenLinea label="Sistema" valor={resumen.total} />
+          <ResumenLinea label="Contado" valor={totalContado} />
+          <ResumenLinea label="Diferencia" valor={diferenciaTotal} destacar />
+        </div>
+
+        <button
+          type="submit"
+          disabled={cerrando || !hayMovimientosPendientes}
+          className="w-full mt-6 px-5 py-3 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 disabled:bg-stone-300 transition-colors flex items-center justify-center gap-2"
+        >
+          <Save className="w-5 h-5" />
+
+          {cerrando
+            ? 'Cerrando...'
+            : esHoy
+              ? cierreExistente
+                ? 'Cerrar movimientos pendientes'
+                : 'Cerrar caja del día'
+              : 'Cerrar caja histórica'}
+        </button>
+      </aside>
+    </form>
   )
 }
 
@@ -615,12 +717,81 @@ function HeaderCierre({
   )
 }
 
+function AvisoCierreHistorico({
+  fechaConsulta,
+  rolEmpresa,
+  puedeCerrarCajaHistorica,
+  hayMovimientosPendientes
+}) {
+  if (!hayMovimientosPendientes) {
+    return null
+  }
+
+  return (
+    <div className={`rounded-2xl border p-5 flex gap-3 ${
+      puedeCerrarCajaHistorica
+        ? 'bg-amber-50 border-amber-100 text-amber-800'
+        : 'bg-red-50 border-red-100 text-red-700'
+    }`}>
+      {puedeCerrarCajaHistorica ? (
+        <History className="w-5 h-5 shrink-0 mt-0.5" />
+      ) : (
+        <LockKeyhole className="w-5 h-5 shrink-0 mt-0.5" />
+      )}
+
+      <div>
+        <h3 className="font-black">
+          Caja histórica pendiente: {formatearFecha(fechaConsulta)}
+        </h3>
+
+        <p className="text-sm mt-1">
+          {puedeCerrarCajaHistorica
+            ? 'Podés cerrar esta fecha anterior porque tu rol es Dueño o Administrador. Las transacciones conservarán su fecha original.'
+            : `Tu rol actual (${rolEmpresa || 'Sin rol'}) no puede cerrar fechas anteriores. Solicitá a un Dueño o Administrador.`}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function AvisoMovimientosPendientes({
+  movimientosPendientes,
+  resumen,
+  esHoy
+}) {
+  return (
+    <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 text-amber-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <h3 className="font-black text-amber-800">
+          {esHoy
+            ? 'Hay movimientos pendientes después del último cierre'
+            : 'Hay movimientos históricos pendientes de cierre'}
+        </h3>
+
+        <p className="text-sm text-amber-700 mt-1">
+          Se detectaron {movimientosPendientes.length} movimiento(s) que todavía no están incluidos en ningún cierre.
+        </p>
+      </div>
+
+      <div className="bg-white border border-amber-100 rounded-2xl px-5 py-3 text-right shrink-0">
+        <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">
+          Pendiente sistema
+        </p>
+
+        <p className="text-xl font-black text-stone-800">
+          {formatearDinero(resumen.total)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function ResumenCaja({ resumen }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
       <ResumenCard titulo="Ingresos" valor={resumen.ingresos} descripcion="Montos positivos" Icon={Wallet} />
       <ResumenCard titulo="Egresos" valor={resumen.egresos} descripcion="Montos negativos" Icon={Banknote} />
-      <ResumenCard titulo="Total sistema" valor={resumen.total} descripcion="Neto del día" Icon={FileCheck2} />
+      <ResumenCard titulo="Total sistema" valor={resumen.total} descripcion="Neto pendiente" Icon={FileCheck2} />
       <ResumenCard titulo="Efectivo" valor={resumen.efectivo} descripcion="Caja efectivo" Icon={Banknote} />
       <ResumenCard titulo="Mercado Pago" valor={resumen.mercadoPago} descripcion="Transferencia + tarjeta" Icon={CreditCard} />
     </div>
@@ -712,7 +883,7 @@ function CierreRealizado({ cierre, detalles }) {
       </p>
 
       <p className="text-xs text-stone-400 mb-6">
-        Cerrado por: {cierre.cerrador?.nombre_negocio || 'Sin profesional'} · {formatearFechaHora(cierre.fecha_cierre)}
+        Cierre #{cierre.numero_cierre || 1} · Cerrado por: {cierre.cerrador?.nombre_negocio || 'Sin profesional'} · {formatearFechaHora(cierre.fecha_cierre)}
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-6">
@@ -764,7 +935,12 @@ function CierreRealizado({ cierre, detalles }) {
   )
 }
 
-function SinCierreHistorico({ fechaConsulta, resumen }) {
+function SinCierreHistorico({
+  fechaConsulta,
+  resumen,
+  puedeCerrarCajaHistorica,
+  hayMovimientosPendientes
+}) {
   return (
     <div className="bg-amber-50 rounded-2xl border border-amber-100 shadow-sm p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div className="flex items-start gap-3">
@@ -778,14 +954,16 @@ function SinCierreHistorico({ fechaConsulta, resumen }) {
           </h3>
 
           <p className="text-sm text-amber-700 mt-1">
-            Se muestran los movimientos de esa fecha en modo consulta. No se puede cerrar una caja histórica desde esta pantalla.
+            {hayMovimientosPendientes && puedeCerrarCajaHistorica
+              ? 'Se detectaron movimientos pendientes. Podés cerrar esta caja histórica sin mover las transacciones de fecha.'
+              : 'Se muestran los movimientos de esa fecha en modo consulta.'}
           </p>
         </div>
       </div>
 
       <div className="bg-white border border-amber-100 rounded-2xl px-5 py-3 text-right">
         <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">
-          Total sistema
+          Total pendiente
         </p>
 
         <p className="text-xl font-black text-stone-800">
@@ -850,7 +1028,7 @@ function HistorialCierres({ cierres, fechaConsulta, onSeleccionarFecha }) {
                 </div>
 
                 <p className="text-xs text-stone-500 mt-1">
-                  Sistema: {formatearDinero(cierre.total_sistema)}
+                  Cierre #{cierre.numero_cierre || 1} · Sistema: {formatearDinero(cierre.total_sistema)}
                 </p>
 
                 <p className="text-xs text-stone-500">
@@ -887,6 +1065,7 @@ function TablaMovimientos({ movimientos, titulo }) {
               <th className="px-6 py-4">Caja</th>
               <th className="px-6 py-4">Detalle</th>
               <th className="px-6 py-4">Profesional</th>
+              <th className="px-6 py-4">Cierre</th>
               <th className="px-6 py-4 text-right">Monto</th>
             </tr>
           </thead>
@@ -894,7 +1073,7 @@ function TablaMovimientos({ movimientos, titulo }) {
           <tbody className="divide-y divide-stone-100">
             {movimientos.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-stone-400 font-light">
+                <td colSpan="7" className="px-6 py-12 text-center text-stone-400 font-light">
                   No hay movimientos registrados en esta fecha.
                 </td>
               </tr>
@@ -912,6 +1091,17 @@ function TablaMovimientos({ movimientos, titulo }) {
                   </td>
                   <td className="px-6 py-4">{item.descripcion || item.categoria || 'Sin detalle'}</td>
                   <td className="px-6 py-4">{item.profesional?.nombre_negocio || 'Sin profesional'}</td>
+                  <td className="px-6 py-4">
+                    {item.cierre_diario_id ? (
+                      <span className="inline-flex px-2 py-1 rounded-full bg-teal-50 text-teal-700 text-[10px] font-black uppercase tracking-widest">
+                        Cerrado
+                      </span>
+                    ) : (
+                      <span className="inline-flex px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-widest">
+                        Pendiente
+                      </span>
+                    )}
+                  </td>
                   <td className={`px-6 py-4 text-right font-black ${Number(item.monto || 0) < 0 ? 'text-red-600' : 'text-teal-700'}`}>
                     {formatearDinero(item.monto)}
                   </td>
