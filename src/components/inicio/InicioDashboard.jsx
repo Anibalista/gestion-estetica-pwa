@@ -2,6 +2,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import {
+  finDiaAppISO,
+  formatearFechaSoloApp,
+  formatearHoraApp,
+  inicioDiaAppISO,
+  obtenerFechaInputApp,
+  obtenerFechaInputDesdeValorApp
+} from '../../utils/fechas'
+import {
   AlertTriangle,
   CalendarDays,
   ChevronDown,
@@ -122,8 +130,8 @@ export function InicioDashboard({
           )
         `)
         .eq('empresa_id', empresaActiva.id)
-        .gte('fecha_hora', `${primerDiaVisible}T00:00:00`)
-        .lte('fecha_hora', `${ultimoDiaVisible}T23:59:59`)
+        .gte('fecha_hora', inicioDiaAppISO(primerDiaVisible))
+        .lte('fecha_hora', finDiaAppISO(ultimoDiaVisible))
         .order('fecha_hora', { ascending: true })
 
       if (!puedeVerEmpresaCompleta) {
@@ -179,8 +187,8 @@ export function InicioDashboard({
           )
         `)
         .eq('empresa_id', empresaActiva.id)
-        .gte('fecha_hora', `${inicioMes}T00:00:00`)
-        .lte('fecha_hora', `${finMes}T23:59:59`)
+        .gte('fecha_hora', inicioDiaAppISO(inicioMes))
+        .lte('fecha_hora', finDiaAppISO(finMes))
 
       if (!puedeVerEmpresaCompleta) {
         querySesionesMes = querySesionesMes.eq('profesional_id', session.user.id)
@@ -1025,7 +1033,7 @@ function construirDiasCalendario(fechaVista) {
 
 function agruparSesionesPorDia(sesiones) {
   return sesiones.reduce((acc, sesion) => {
-    const fecha = obtenerFechaInput(new Date(sesion.fecha_hora))
+    const fecha = obtenerFechaInputDesdeValorApp(sesion.fecha_hora)
 
     if (!acc[fecha]) {
       acc[fecha] = []
@@ -1095,7 +1103,7 @@ function calcularClientesFrecuentesMes(sesiones, fechaVista) {
 
   sesiones
     .filter((sesion) => {
-      const fecha = obtenerFechaInput(new Date(sesion.fecha_hora))
+      const fecha = obtenerFechaInputDesdeValorApp(sesion.fecha_hora)
 
       return fecha >= inicioMes && fecha <= finMes && sesion.estado === 'Cobrada' && sesion.clientes
     })
@@ -1201,11 +1209,7 @@ function crearFechaLocal(valor) {
 }
 
 function obtenerFechaInput(fecha) {
-  const anio = fecha.getFullYear()
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-  const dia = String(fecha.getDate()).padStart(2, '0')
-
-  return `${anio}-${mes}-${dia}`
+  return obtenerFechaInputApp(fecha)
 }
 
 function formatearFecha(fecha) {
@@ -1220,18 +1224,11 @@ function formatearFecha(fecha) {
 }
 
 function formatearFechaSolo(fecha) {
-  if (!fecha) return ''
-
-  return new Date(fecha).toLocaleDateString('es-AR')
+  return formatearFechaSoloApp(fecha)
 }
 
 function formatearHora(fecha) {
-  if (!fecha) return ''
-
-  return new Date(fecha).toLocaleTimeString('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  return formatearHoraApp(fecha)
 }
 
 function formatearDinero(valor) {

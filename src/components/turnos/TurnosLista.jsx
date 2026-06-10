@@ -1,6 +1,12 @@
 // src/components/turnos/TurnosLista.jsx
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import {
+  formatearFechaHoraApp,
+  inicioDiaAppISO,
+  obtenerFechaInputApp,
+  obtenerFechaInputDesdeValorApp
+} from '../../utils/fechas'
 
 const MEDIOS_PAGO = [
   'Efectivo',
@@ -24,16 +30,7 @@ export function TurnosLista({
   const [ordenFecha, setOrdenFecha] = useState('asc')
 
   const formatearFechaHora = (isoString) => {
-    if (!isoString) return { dia: '--/--/--', hora: '--:--' }
-
-    const [fechaPart, horaPartFull] = isoString.split('T')
-    const [anio, mes, dia] = fechaPart.split('-')
-    const hora = horaPartFull.slice(0, 5)
-
-    return {
-      dia: `${dia}/${mes}/${anio}`,
-      hora: hora
-    }
+    return formatearFechaHoraApp(isoString)
   }
 
   const cambiarOrdenFecha = () => {
@@ -76,7 +73,9 @@ export function TurnosLista({
     p_venta_id: null,
     p_sesion_id: turno.id,
     p_creado_por: session.user.id,
-    p_movimiento_relacionado_id: null
+    p_movimiento_relacionado_id: null,
+    p_fecha_operativa: obtenerFechaInputDesdeValorApp(turno.fecha_hora),
+    p_created_at: new Date().toISOString()
   })
 
   if (error) throw error
@@ -85,7 +84,7 @@ export function TurnosLista({
   const registrarAnulacionCajaSesion = async (turno) => {
     const { data: ingreso, error: errorIngreso } = await supabase
       .from('caja_movimientos')
-      .select('id, monto, medio_pago')
+      .select('id, monto, medio_pago, fecha_operativa')
       .eq('sesion_id', turno.id)
       .eq('tipo_movimiento', 'Ingreso')
       .maybeSingle()
@@ -115,7 +114,9 @@ export function TurnosLista({
       p_venta_id: null,
       p_sesion_id: turno.id,
       p_creado_por: session.user.id,
-      p_movimiento_relacionado_id: ingreso.id
+      p_movimiento_relacionado_id: ingreso.id,
+      p_fecha_operativa: ingreso.fecha_operativa || obtenerFechaInputDesdeValorApp(turno.fecha_hora),
+      p_created_at: new Date().toISOString()
     })
 
     if (error) throw error
@@ -268,10 +269,9 @@ export function TurnosLista({
       .order('fecha_hora', { ascending: true })
 
       if (!verAnteriores) {
-        const hoy = new Date()
-        hoy.setHours(0, 0, 0, 0)
+        const hoy = obtenerFechaInputApp(new Date())
 
-        query = query.gte('fecha_hora', hoy.toISOString())
+        query = query.gte('fecha_hora', inicioDiaAppISO(hoy))
       }
 
       const { data, error } = await query

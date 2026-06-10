@@ -14,6 +14,7 @@ export function VentaFormulario({
 
   const [clientes, setClientes] = useState([])
   const [productos, setProductos] = useState([])
+  const [filtroProducto, setFiltroProducto] = useState('')
 
   const [formData, setFormData] = useState({
     cliente_id: '',
@@ -68,7 +69,7 @@ export function VentaFormulario({
 
       const productosSinDuplicados = Array.from(
         new Map(productosUnidos.map((producto) => [producto.id, producto])).values()
-      ).sort((a, b) => a.descripcion.localeCompare(b.descripcion))
+      ).sort((a, b) => String(a.descripcion || '').localeCompare(String(b.descripcion || '')))
 
       setClientes(clientesOrdenados)
       setProductos(productosSinDuplicados)
@@ -80,6 +81,24 @@ export function VentaFormulario({
       })
     }
   }
+
+  const productosFiltrados = useMemo(() => {
+    const filtro = normalizarTexto(filtroProducto)
+
+    if (!filtro) return productos
+
+    return productos.filter((producto) => {
+      const codigo = normalizarTexto(producto.codigo)
+      const descripcion = normalizarTexto(producto.descripcion)
+      const nombre = normalizarTexto(producto.nombre)
+
+      return (
+        codigo.includes(filtro) ||
+        descripcion.includes(filtro) ||
+        nombre.includes(filtro)
+      )
+    })
+  }, [productos, filtroProducto])
 
   const montoTotal = useMemo(() => {
     return carrito.reduce((acc, item) => acc + (item.cantidad * item.precio_unitario), 0)
@@ -111,6 +130,7 @@ export function VentaFormulario({
         ...prev,
         {
           producto_id: prod.id,
+          codigo: prod.codigo,
           descripcion: prod.descripcion,
           alcance_stock: prod.alcance_stock || 'Profesional',
           cantidad: 1,
@@ -384,71 +404,117 @@ export function VentaFormulario({
           Productos a facturar
         </h3>
 
-        <select
-          onChange={(e) => {
-            agregarProducto(e.target.value)
-            e.target.value = ''
-          }}
-          className="w-full px-4 py-3 mb-4 border border-teal-300 rounded-xl outline-none cursor-pointer text-teal-800 font-bold bg-teal-50 shadow-sm"
-        >
-          <option value="">+ Escanear o buscar producto...</option>
-          {productos.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.codigo} - {p.descripcion} (${Number(p.precio_venta || 0).toFixed(2)}) · {p.alcance_stock === 'Empresa' ? 'Empresa' : 'Personal'}
+        <div className="space-y-3 mb-4">
+          <label className="block">
+            <span className="block text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">
+              Buscar producto
+            </span>
+
+            <input
+              type="search"
+              value={filtroProducto}
+              onChange={(e) => setFiltroProducto(e.target.value)}
+              placeholder="Filtrar por código, nombre o descripción..."
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 bg-white text-stone-700"
+            />
+          </label>
+
+          <select
+            onChange={(e) => {
+              agregarProducto(e.target.value)
+              e.target.value = ''
+            }}
+            className="w-full px-4 py-3 border border-teal-300 rounded-xl outline-none cursor-pointer text-teal-800 font-bold bg-teal-50 shadow-sm"
+          >
+            <option value="">
+              {productosFiltrados.length === 0
+                ? 'No hay productos para ese filtro'
+                : '+ Escanear o seleccionar producto...'}
             </option>
-          ))}
-        </select>
+
+            {productosFiltrados.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.codigo} - {p.descripcion} (${Number(p.precio_venta || 0).toFixed(2)}) · {p.alcance_stock === 'Empresa' ? 'Empresa' : 'Personal'}
+              </option>
+            ))}
+          </select>
+
+          {filtroProducto && (
+            <div className="flex items-center justify-between gap-3 text-xs text-stone-400">
+              <span>
+                {productosFiltrados.length} producto(s) encontrados.
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setFiltroProducto('')}
+                className="font-bold text-teal-600 hover:text-teal-700"
+              >
+                Limpiar filtro
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="flex-1 space-y-3 min-h-[260px]">
           {carrito.length === 0 ? (
-            <div className="h-full flex items-center justify-center border border-dashed border-stone-200 rounded-2xl text-stone-400">
+            <div className="h-full flex items-center justify-center border border-dashed border-stone-200 rounded-2xl text-stone-400 text-center px-4">
               El carrito está vacío.
             </div>
           ) : (
             carrito.map((item) => (
               <div
                 key={item.producto_id}
-                className="bg-stone-50 border border-stone-100 rounded-xl p-3 flex items-center justify-between gap-3"
+                className="bg-stone-50 border border-stone-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
               >
-                <div className="min-w-0">
-                  <p className="font-bold text-stone-800 truncate" title={item.descripcion}>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="font-bold text-stone-800 leading-snug break-words"
+                    title={item.descripcion}
+                  >
                     {item.descripcion}
                   </p>
 
-                  <p className="text-xs text-stone-500">
+                  <p className="text-xs text-stone-500 mt-1">
+                    {item.codigo ? `${item.codigo} · ` : ''}
                     ${Number(item.precio_unitario || 0).toFixed(2)} c/u · {item.alcance_stock === 'Empresa' ? 'Empresa' : 'Personal'}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => cambiarCantidad(item.producto_id, -1)}
-                    className="px-3 py-1 font-bold text-stone-500 hover:text-stone-800"
-                  >
-                    -
-                  </button>
+                <div className="w-full sm:w-auto flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-3 shrink-0 border-t border-stone-200 pt-3 sm:border-t-0 sm:pt-0">
+                  <div className="flex items-center gap-2 bg-white border border-stone-200 rounded-xl px-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => cambiarCantidad(item.producto_id, -1)}
+                      className="w-8 h-8 rounded-lg font-black text-stone-500 hover:bg-stone-100 hover:text-stone-800"
+                      title="Quitar una unidad"
+                    >
+                      -
+                    </button>
 
-                  <span className="font-black text-stone-800 min-w-[24px] text-center">
-                    {item.cantidad}
-                  </span>
+                    <span className="font-black text-stone-800 min-w-[28px] text-center">
+                      {item.cantidad}
+                    </span>
 
-                  <button
-                    type="button"
-                    onClick={() => cambiarCantidad(item.producto_id, 1)}
-                    className="px-3 py-1 font-bold text-stone-500 hover:text-stone-800"
-                  >
-                    +
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => cambiarCantidad(item.producto_id, 1)}
+                      className="w-8 h-8 rounded-lg font-black text-stone-500 hover:bg-stone-100 hover:text-stone-800"
+                      title="Agregar una unidad"
+                    >
+                      +
+                    </button>
+                  </div>
 
-                  <p className="font-black text-stone-800 min-w-[90px] text-right">
+                  <p className="font-black text-stone-800 text-right min-w-[100px]">
                     ${Number(item.subtotal || 0).toFixed(2)}
                   </p>
 
                   <button
                     type="button"
                     onClick={() => quitarProducto(item.producto_id)}
-                    className="text-red-300 hover:text-red-500 font-black text-lg px-2"
+                    className="w-9 h-9 rounded-xl bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100 font-black text-lg flex items-center justify-center transition-colors"
+                    title="Quitar producto"
                   >
                     ×
                   </button>
@@ -459,12 +525,12 @@ export function VentaFormulario({
         </div>
 
         <div className="border-t border-stone-100 mt-6 pt-5">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
             <span className="text-sm font-bold text-stone-500">
               Total a pagar
             </span>
 
-            <span className="text-3xl font-black text-teal-700">
+            <span className="text-3xl font-black text-teal-700 break-all">
               ${montoTotal.toFixed(2)}
             </span>
           </div>
@@ -490,4 +556,12 @@ export function VentaFormulario({
       </section>
     </form>
   )
+}
+
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
 }
