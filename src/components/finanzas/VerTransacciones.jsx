@@ -236,7 +236,7 @@ export function VerTransacciones({
       return
     }
 
-    const monto = Number(formMovimiento.monto || 0)
+    const monto = Math.abs(Number(formMovimiento.monto || 0))
 
     if (monto <= 0) {
       setFeedbackMovimiento({
@@ -277,7 +277,9 @@ export function VerTransacciones({
         p_venta_id: null,
         p_sesion_id: null,
         p_creado_por: session.user.id,
-        p_movimiento_relacionado_id: null
+        p_movimiento_relacionado_id: null,
+        p_fecha_operativa: fechaBase,
+        p_created_at: new Date().toISOString()
       })
 
       if (error) throw error

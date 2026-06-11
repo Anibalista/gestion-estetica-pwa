@@ -1,12 +1,29 @@
 // src/components/turnos/TurnoFormulario.jsx
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../supabaseClient'
+import {
+  formatearHoraApp,
+  obtenerFechaInputDesdeValorApp
+} from '../../utils/fechas'
 
 const MEDIOS_PAGO = [
   'Efectivo',
   'Transferencia',
   'Tarjeta'
 ]
+
+function crearFechaLocalParaComparar(fecha, hora) {
+  if (!fecha || !hora) return new Date(NaN)
+
+  return new Date(`${fecha}T${hora}:00`)
+}
+
+function crearFechaLocalDesdeValorApp(valor) {
+  const fecha = obtenerFechaInputDesdeValorApp(valor)
+  const hora = formatearHoraApp(valor)
+
+  return crearFechaLocalParaComparar(fecha, hora)
+}
 
 export function TurnoFormulario({
   session,
@@ -106,8 +123,8 @@ export function TurnoFormulario({
     cargarTodo()
 
     if (turnoInicial) {
-      const [fechaBD, horaFullBD] = turnoInicial.fecha_hora.split('T')
-      const horaBD = horaFullBD.slice(0, 5)
+      const fechaBD = obtenerFechaInputDesdeValorApp(turnoInicial.fecha_hora)
+      const horaBD = formatearHoraApp(turnoInicial.fecha_hora)
 
       setFormData({
         id: turnoInicial.id,
@@ -316,8 +333,9 @@ export function TurnoFormulario({
       return
     }
 
-    const inicioNuevo = new Date(
-      `${formData.fecha}T${formData.hora}:00`
+    const inicioNuevo = crearFechaLocalParaComparar(
+      formData.fecha,
+      formData.hora
     )
 
     const duracionActual =
@@ -332,9 +350,7 @@ export function TurnoFormulario({
     const choque = turnosExistentes.find(t => {
       if (t.id === formData.id) return false
 
-      const [fE, hE] = t.fecha_hora.split('T')
-
-      const inicioE = new Date(`${fE}T${hE.slice(0, 8)}`)
+      const inicioE = crearFechaLocalDesdeValorApp(t.fecha_hora)
 
       const finE = new Date(
         inicioE.getTime() + (t.duracion_total + 10) * 60000
@@ -417,35 +433,20 @@ export function TurnoFormulario({
 
       if (errorInsertDetalles) throw errorInsertDetalles
 
-      if (datosSesion.estado === 'Cobrada' && datosSesion.monto_cobrado > 0) {
-        const { data: movimientoExistente, error: errorMovimientoExistente } = await supabase
-          .from('caja_movimientos')
-          .select('id')
-          .eq('sesion_id', sesionId)
-          .eq('tipo_movimiento', 'Ingreso')
-          .maybeSingle()
+      const { error: errorCobro } = await supabase.rpc('reconciliar_cobro_sesion', {
+        p_sesion_id: sesionId,
+        p_empresa_id: empresaActiva.id,
+        p_profesional_id: session.user.id,
+        p_estado: datosSesion.estado,
+        p_monto_cobrado: datosSesion.monto_cobrado,
+        p_medio_pago: datosSesion.medio_pago,
+        p_fecha_operativa: formData.fecha,
+        p_creado_por: session.user.id,
+        p_created_at: new Date().toISOString(),
+        p_observaciones: datosSesion.observaciones || null
+      })
 
-        if (errorMovimientoExistente) throw errorMovimientoExistente
-
-        if (!movimientoExistente) {
-          const { error: errorCaja } = await supabase.rpc('registrar_movimiento_caja', {
-            p_empresa_id: empresaActiva.id,
-            p_profesional_id: session.user.id,
-            p_medio_pago: datosSesion.medio_pago,
-            p_tipo_movimiento: 'Ingreso',
-            p_monto: datosSesion.monto_cobrado,
-            p_descripcion: 'Cobro de sesión',
-            p_categoria: 'Sesion',
-            p_observaciones: datosSesion.observaciones || null,
-            p_venta_id: null,
-            p_sesion_id: sesionId,
-            p_creado_por: session.user.id,
-            p_movimiento_relacionado_id: null
-          })
-
-          if (errorCaja) throw errorCaja
-        }
-      }
+      if (errorCobro) throw errorCobro
 
       if (aDomicilio && formData.cliente_id) {
         const { error: errorDireccion } = await supabase
