@@ -72,92 +72,177 @@ export function TurnoFormulario({
 
   // 1. CARGA INICIAL
   useEffect(() => {
+    let cargaCancelada = false
+
     const cargarTodo = async () => {
-      const { data: clis } = await supabase
-        .from('cliente_profesional')
-        .select('clientes(id, nombre, telefono)')
-        .eq('profesional_id', session.user.id)
+      if (!session?.user?.id) return
 
-      setClientes(
-        clis
-          ?.map(d => d.clientes)
+      try {
+        let queryTurnos = supabase
+          .from('sesiones')
+          .select('id, fecha_hora, duracion_total, clientes(nombre)')
+          .eq('profesional_id', session.user.id)
+          .neq('estado', 'Anulada')
+
+        if (empresaActiva?.id) {
+          queryTurnos = queryTurnos.eq('empresa_id', empresaActiva.id)
+        }
+
+        const [
+          clientesResponse,
+          serviciosResponse,
+          combosResponse,
+          turnosResponse
+        ] = await Promise.all([
+          supabase
+            .from('cliente_profesional')
+            .select('clientes(id, nombre, telefono)')
+            .eq('profesional_id', session.user.id),
+
+          supabase
+            .from('servicio_profesional')
+            .select(`
+              servicios!inner (
+                id,
+                nombre,
+                activo,
+                precio_actual,
+                descripcion,
+                duracion_minutos,
+                beneficios
+              )
+            `)
+            .eq('profesional_id', session.user.id)
+            .eq('servicios.activo', true),
+
+          supabase
+            .from('combos')
+            .select('*')
+            .eq('profesional_id', session.user.id)
+            .eq('activo', true),
+
+          queryTurnos
+        ])
+
+        if (clientesResponse.error) {
+          throw new Error(
+            `No se pudieron cargar los pacientes: ${clientesResponse.error.message}`
+          )
+        }
+
+        if (serviciosResponse.error) {
+          throw new Error(
+            `No se pudieron cargar los servicios: ${serviciosResponse.error.message}`
+          )
+        }
+
+        if (combosResponse.error) {
+          throw new Error(
+            `No se pudieron cargar los combos: ${combosResponse.error.message}`
+          )
+        }
+
+        if (turnosResponse.error) {
+          throw new Error(
+            `No se pudo comprobar la agenda: ${turnosResponse.error.message}`
+          )
+        }
+
+        if (cargaCancelada) return
+
+        const clientesFormateados = (clientesResponse.data || [])
+          .map(item => item.clientes)
           .filter(Boolean)
-          .sort((a, b) => a.nombre.localeCompare(b.nombre)) || []
-      )
+          .sort((a, b) =>
+            String(a.nombre || '').localeCompare(
+              String(b.nombre || ''),
+              'es',
+              { sensitivity: 'base' }
+            )
+          )
 
-      const { data: servs } = await supabase
-        .from('servicio_profesional')
-        .select('servicios(*)')
-        .eq('profesional_id', session.user.id)
-        .eq('servicios.activo', true)
+        const listaServicios = (serviciosResponse.data || [])
+          .map(item => item.servicios)
+          .filter(Boolean)
+          .map(servicio => ({
+            ...servicio,
+            tipoItem: 'servicio',
+            idUnico: `serv_${servicio.id}`
+          }))
 
-      const { data: cmbs } = await supabase
-        .from('combos')
-        .select('*')
-        .eq('profesional_id', session.user.id)
-        .eq('activo', true)
+        const listaCombos = (combosResponse.data || [])
+          .filter(Boolean)
+          .map(combo => ({
+            ...combo,
+            tipoItem: 'combo',
+            idUnico: `combo_${combo.id}`
+          }))
 
-      const listaServicios = (servs?.map(d => d.servicios) || []).map(s => ({
-        ...s,
-        tipoItem: 'servicio',
-        idUnico: `serv_${s.id}`
-      }))
+        setClientes(clientesFormateados)
+        setCatalogo([...listaCombos, ...listaServicios])
+        setTurnosExistentes(turnosResponse.data || [])
+      } catch (error) {
+        console.error('Error cargando datos del formulario de turnos:', error)
 
-      const listaCombos = (cmbs || []).map(c => ({
-        ...c,
-        tipoItem: 'combo',
-        idUnico: `combo_${c.id}`
-      }))
+        if (cargaCancelada) return
 
-      setCatalogo([...listaCombos, ...listaServicios])
-
-      const { data: tExistentes } = await supabase
-        .from('sesiones')
-        .select('id, fecha_hora, duracion_total, clientes(nombre)')
-        .eq('profesional_id', session.user.id)
-        .neq('estado', 'Anulada')
-
-      setTurnosExistentes(tExistentes || [])
+        setClientes([])
+        setCatalogo([])
+        setTurnosExistentes([])
+        setFeedback({
+          tipo: 'error',
+          mensaje:
+            error.message ||
+            'No se pudieron cargar los datos necesarios para registrar la sesión.'
+        })
+      }
     }
 
     cargarTodo()
 
-    if (turnoInicial) {
-      const fechaBD = obtenerFechaInputDesdeValorApp(turnoInicial.fecha_hora)
-      const horaBD = formatearHoraApp(turnoInicial.fecha_hora)
-
-      setFormData({
-        id: turnoInicial.id,
-        cliente_id: turnoInicial.cliente_id,
-        observaciones: turnoInicial.observaciones || '',
-        estado: turnoInicial.estado,
-        fecha: fechaBD,
-        hora: horaBD,
-        monto_cobrado: turnoInicial.monto_cobrado ?? '',
-        medio_pago: turnoInicial.medio_pago || 'Efectivo',
-        duracion_manual: turnoInicial.duracion_total || ''
-      })
-
-      setADomicilio(turnoInicial.a_domicilio || false)
-
-      const itemsGuardados =
-        turnoInicial.sesion_detalles?.map(d => ({
-          tipoItem: d.servicio_id ? 'servicio' : 'combo',
-          id: d.servicio_id || d.combo_id,
-          idUnico: d.servicio_id
-            ? `serv_${d.servicio_id}`
-            : `combo_${d.combo_id}`,
-          nombre: d.servicios?.nombre || d.combos?.nombre,
-          precio_actual: d.precio_cobrado,
-          duracion_minutos:
-            d.servicios?.duracion_minutos ||
-            d.combos?.duracion_minutos ||
-            0
-        })) || []
-
-      setCarrito(itemsGuardados)
+    return () => {
+      cargaCancelada = true
     }
-  }, [session.user.id, turnoInicial])
+  }, [session?.user?.id, empresaActiva?.id])
+
+  // CARGAR DATOS DEL TURNO EN EDICIÓN
+  useEffect(() => {
+    if (!turnoInicial) return
+
+    const fechaBD = obtenerFechaInputDesdeValorApp(turnoInicial.fecha_hora)
+    const horaBD = formatearHoraApp(turnoInicial.fecha_hora)
+
+    setFormData({
+      id: turnoInicial.id,
+      cliente_id: turnoInicial.cliente_id,
+      observaciones: turnoInicial.observaciones || '',
+      estado: turnoInicial.estado,
+      fecha: fechaBD,
+      hora: horaBD,
+      monto_cobrado: turnoInicial.monto_cobrado ?? '',
+      medio_pago: turnoInicial.medio_pago || 'Efectivo',
+      duracion_manual: turnoInicial.duracion_total || ''
+    })
+
+    setADomicilio(turnoInicial.a_domicilio || false)
+
+    const itemsGuardados =
+      turnoInicial.sesion_detalles?.map(detalle => ({
+        tipoItem: detalle.servicio_id ? 'servicio' : 'combo',
+        id: detalle.servicio_id || detalle.combo_id,
+        idUnico: detalle.servicio_id
+          ? `serv_${detalle.servicio_id}`
+          : `combo_${detalle.combo_id}`,
+        nombre: detalle.servicios?.nombre || detalle.combos?.nombre,
+        precio_actual: detalle.precio_cobrado,
+        duracion_minutos:
+          detalle.servicios?.duracion_minutos ||
+          detalle.combos?.duracion_minutos ||
+          0
+      })) || []
+
+    setCarrito(itemsGuardados)
+  }, [turnoInicial])
 
   // Autocompletar texto del cliente seleccionado
   useEffect(() => {
