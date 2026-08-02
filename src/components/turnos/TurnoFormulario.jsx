@@ -1,5 +1,5 @@
 // src/components/turnos/TurnoFormulario.jsx
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import {
   formatearHoraApp,
@@ -37,6 +37,10 @@ export function TurnoFormulario({
   const [feedback, setFeedback] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [confirmarSuperposicion, setConfirmarSuperposicion] = useState(false)
+
+  // Misma clave durante toda esta apertura del formulario.
+  // Evita que doble click/reintentos creen otra sesión distinta.
+  const idempotencyKeyRef = useRef(crypto.randomUUID())
 
   // Buscador clientes
   const [busquedaCliente, setBusquedaCliente] = useState('')
@@ -376,6 +380,10 @@ export function TurnoFormulario({
   // 4. GUARDADO
   const handleGuardar = async e => {
     e.preventDefault()
+
+    // Protección inmediata de UI contra doble submit.
+    if (isSubmitting) return
+
     setFeedback(null)
 
     if (!empresaActiva?.id) {
@@ -431,7 +439,6 @@ export function TurnoFormulario({
       inicioNuevo.getTime() + duracionActual * 60000
     )
 
-    // Validación de choque
     const choque = turnosExistentes.find(t => {
       if (t.id === formData.id) return false
 
@@ -461,78 +468,50 @@ export function TurnoFormulario({
     setIsSubmitting(true)
 
     try {
-      const datosSesion = {
-        cliente_id: formData.cliente_id,
-        profesional_id: session.user.id,
-        empresa_id: empresaActiva.id,
-        fecha_hora: `${formData.fecha}T${formData.hora}:00`,
-        monto_total: totales.monto,
-        duracion_total: duracionActual,
-        monto_cobrado: formData.estado === 'Cobrada' ? parseFloat(formData.monto_cobrado) || 0 : 0,
-        medio_pago: formData.estado === 'Cobrada' ? formData.medio_pago : null,
-        observaciones: formData.observaciones,
-        estado: formData.estado,
-        a_domicilio: aDomicilio
-      }
+      const montoCobrado =
+        formData.estado === 'Cobrada'
+          ? parseFloat(formData.monto_cobrado) || 0
+          : 0
 
-      let sesionId = formData.id
-
-      if (sesionId) {
-        const { error } = await supabase
-          .from('sesiones')
-          .update(datosSesion)
-          .eq('id', sesionId)
-
-        if (error) throw error
-
-        const { error: errorDeleteDetalles } = await supabase
-          .from('sesion_detalles')
-          .delete()
-          .eq('sesion_id', sesionId)
-
-        if (errorDeleteDetalles) throw errorDeleteDetalles
-      } else {
-        const { data, error } = await supabase
-          .from('sesiones')
-          .insert([datosSesion])
-          .select()
-          .single()
-
-        if (error) throw error
-
-        sesionId = data.id
-      }
-
-      const lineas = carrito.map(i => ({
-        sesion_id: sesionId,
-        servicio_id:
-          i.tipoItem === 'servicio' ? i.id : null,
-        combo_id:
-          i.tipoItem === 'combo' ? i.id : null,
-        precio_cobrado: i.precio_actual
+      const detalles = carrito.map(item => ({
+        tipoItem: item.tipoItem,
+        id: item.id,
+        precio_cobrado: Number(item.precio_actual || 0)
       }))
 
-      const { error: errorInsertDetalles } = await supabase
-        .from('sesion_detalles')
-        .insert(lineas)
+      // Una sola transacción PostgreSQL guarda:
+      // sesión + detalles + reconciliación financiera.
+      // Si falla caja, todo hace rollback.
+      const { data: sesionId, error } = await supabase.rpc(
+        'guardar_sesion_atomica',
+        {
+          p_empresa_id: empresaActiva.id,
+          p_cliente_id: formData.cliente_id,
+          p_fecha_hora: `${formData.fecha}T${formData.hora}:00`,
+          p_fecha_operativa: formData.fecha,
+          p_monto_total: totales.monto,
+          p_estado: formData.estado,
+          p_duracion_total: duracionActual,
+          p_a_domicilio: aDomicilio,
+          p_detalles: detalles,
+          p_sesion_id: formData.id || null,
+          p_idempotency_key: formData.id
+            ? null
+            : idempotencyKeyRef.current,
+          p_monto_cobrado: montoCobrado,
+          p_medio_pago:
+            formData.estado === 'Cobrada'
+              ? formData.medio_pago
+              : null,
+          p_observaciones: formData.observaciones || null
+        }
+      )
 
-      if (errorInsertDetalles) throw errorInsertDetalles
+      if (error) throw error
 
-      const { error: errorCobro } = await supabase.rpc('reconciliar_cobro_sesion', {
-        p_sesion_id: sesionId,
-        p_empresa_id: empresaActiva.id,
-        p_profesional_id: session.user.id,
-        p_estado: datosSesion.estado,
-        p_monto_cobrado: datosSesion.monto_cobrado,
-        p_medio_pago: datosSesion.medio_pago,
-        p_fecha_operativa: formData.fecha,
-        p_creado_por: session.user.id,
-        p_created_at: new Date().toISOString(),
-        p_observaciones: datosSesion.observaciones || null
-      })
-
-      if (errorCobro) throw errorCobro
-
+      // La dirección pertenece al cliente, no al asiento financiero.
+      // Si esto falla, la sesión ya quedó guardada, pero reintentar este
+      // mismo formulario no duplica la sesión por idempotency_key.
       if (aDomicilio && formData.cliente_id) {
         const { error: errorDireccion } = await supabase
           .from('direcciones')
@@ -547,14 +526,32 @@ export function TurnoFormulario({
             { onConflict: 'cliente_id' }
           )
 
-        if (errorDireccion) throw errorDireccion
+        if (errorDireccion) {
+          console.error(
+            'Sesión guardada, pero falló la dirección:',
+            errorDireccion
+          )
+
+          setFeedback({
+            tipo: 'error',
+            mensaje:
+              `La sesión ${sesionId ? 'se guardó correctamente' : 'fue procesada'}, ` +
+              'pero no se pudo guardar la dirección. Volvé a intentar.'
+          })
+          return
+        }
       }
 
       onGuardar()
     } catch (error) {
+      console.error('Error guardando sesión:', error)
+
       setFeedback({
         tipo: 'error',
-        mensaje: 'Error: ' + error.message
+        mensaje: 'Error: ' + (
+          error.message ||
+          'No se pudo guardar la sesión.'
+        )
       })
     } finally {
       setIsSubmitting(false)
@@ -1010,7 +1007,8 @@ export function TurnoFormulario({
             <button
               type="button"
               onClick={onCancelar}
-              className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-100 rounded-xl transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-100 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
             </button>
@@ -1018,7 +1016,7 @@ export function TurnoFormulario({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-md transition-all ${
+              className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                 confirmarSuperposicion
                   ? 'bg-amber-600 hover:bg-amber-700'
                   : 'bg-teal-600 hover:bg-teal-700'
